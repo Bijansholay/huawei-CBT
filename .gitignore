@@ -2,9 +2,6 @@
 node_modules/
 **/node_modules/
 
-# Duplicate/local backend copy
-Backend/
-
 # Environment variables and secrets
 .env
 .env.*
