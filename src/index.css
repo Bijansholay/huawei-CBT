@@ -1,0 +1,44 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    background: linear-gradient(180deg, #dbcdfb 0%, #f6e6f9 40%, #e6f6eb 100%);
+    background-attachment: fixed;
+    font-family: 'Outfit', sans-serif;
+  }
+}
+
+@layer components {
+  .soft-card {
+    @apply bg-white rounded-3xl;
+    box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+  }
+  
+  .pill-button {
+    @apply px-5 py-2.5 rounded-full text-sm font-medium transition-all;
+  }
+  
+  .icon-button {
+    @apply w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm text-gray-700 hover:text-black transition-all;
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent; 
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1; 
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8; 
+}
