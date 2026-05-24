@@ -8,15 +8,23 @@ export default function Login() {
   const [role, setRole] = useState('student');
   const [formData, setFormData] = useState({ matric: '', surname: '', password: '' });
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
   const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-    await login({ ...formData, role });
-    setIsLoading(false);
-    navigate(role === 'student' ? '/student' : '/admin');
+    setError('');
+
+    try {
+      const session = await login({ ...formData, role });
+      navigate(session.user.role === 'student' ? '/student' : '/admin');
+    } catch (err) {
+      setError(err.message || 'Login failed');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -99,7 +107,7 @@ export default function Login() {
           ) : (
             <>
               <div>
-                <label className="block text-xs font-semibold text-gray-500 uppercase mb-1.5 ml-1">Admin ID</label>
+                <label className="block text-xs font-semibold text-gray-500 uppercase mb-1.5 ml-1">Admin Email</label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
                     <User className="h-4 w-4" />
@@ -108,7 +116,7 @@ export default function Login() {
                     type="text"
                     required
                     className="block w-full pl-10 pr-3 py-2.5 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-brand-200 text-sm outline-none text-gray-900"
-                    placeholder="Admin ID"
+                    placeholder="admin@example.com"
                     value={formData.matric}
                     onChange={(e) => setFormData({ ...formData, matric: e.target.value })}
                   />
@@ -131,6 +139,12 @@ export default function Login() {
                 </div>
               </div>
             </>
+          )}
+
+          {error && (
+            <p className="text-sm text-red-600 bg-red-50 rounded-2xl px-4 py-2">
+              {error}
+            </p>
           )}
 
           <button

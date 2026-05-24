@@ -1,0 +1,58 @@
+require("dotenv").config();
+
+function parseOrigins(value) {
+  if (!value || value === "*") return ["*"];
+  return value.split(",").map((origin) => origin.trim()).filter(Boolean);
+}
+
+const config = {
+  env: process.env.NODE_ENV || "development",
+  port: Number(process.env.PORT || 3000),
+  jwtSecret: process.env.JWT_SECRET || "change-this-secret-in-production",
+  tokenTtlSeconds: Number(process.env.JWT_TTL_SECONDS || 60 * 60 * 24),
+  storageDriver: process.env.STORAGE_DRIVER || (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_KEY ? "supabase" : "file"),
+  dataFile: process.env.DATA_FILE || "data/store.json",
+  supabaseUrl: process.env.SUPABASE_URL || "",
+  supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY || "",
+  corsOrigins: parseOrigins(process.env.CORS_ORIGIN || "*"),
+  bodyLimit: process.env.BODY_LIMIT || "1mb",
+  adminEmail: process.env.ADMIN_EMAIL || "admin@example.com",
+  adminPassword: process.env.ADMIN_PASSWORD || "admin12345",
+  trustProxy: process.env.TRUST_PROXY === "true",
+  rateLimitWindowMs: Number(process.env.RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000),
+  rateLimitMax: Number(process.env.RATE_LIMIT_MAX || 300)
+};
+
+config.isProduction = config.env === "production";
+
+function validateProductionConfig() {
+  if (!config.isProduction) return;
+
+  const errors = [];
+  if (!process.env.JWT_SECRET || config.jwtSecret.length < 32) {
+    errors.push("JWT_SECRET must be set to at least 32 characters");
+  }
+  if (!process.env.ADMIN_EMAIL) {
+    errors.push("ADMIN_EMAIL must be set");
+  }
+  if (!process.env.ADMIN_PASSWORD || config.adminPassword.length < 12) {
+    errors.push("ADMIN_PASSWORD must be set to at least 12 characters");
+  }
+  if (config.corsOrigins.includes("*")) {
+    errors.push("CORS_ORIGIN must be set to your frontend origin in production");
+  }
+  if (config.storageDriver !== "supabase") {
+    errors.push("STORAGE_DRIVER must be supabase in production");
+  }
+  if (!config.supabaseUrl || !config.supabaseServiceKey) {
+    errors.push("SUPABASE_URL and SUPABASE_SERVICE_KEY must be set in production");
+  }
+
+  if (errors.length) {
+    throw new Error(`Invalid production configuration: ${errors.join("; ")}`);
+  }
+}
+
+validateProductionConfig();
+
+module.exports = config;
