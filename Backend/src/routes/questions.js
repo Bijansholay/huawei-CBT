@@ -2,6 +2,7 @@ const express = require("express");
 const store = require("../store");
 const { authenticate, requireRole } = require("../middleware/auth");
 const { ok, created, fail, asyncHandler } = require("../utils/http");
+const { generateQuestionsFromPdf } = require("../services/aiQuestionService");
 
 const router = express.Router();
 router.use(authenticate, requireRole("admin"));
@@ -35,24 +36,49 @@ router.post("/", asyncHandler(async (req, res) => {
 }));
 
 router.post("/generate", asyncHandler(async (req, res) => {
-  const { examId, exam_id, count } = req.body;
-  const exam = store.collection("exams").find((item) => item.id === (examId || exam_id));
-  if (!exam) return fail(res, 404, "Exam not found");
+  const { examId, exam_id, pdfId, pdf_id, count, num_questions, difficulty, typeCounts, difficultyCounts } = req.body;
+  const resolvedExamId = examId || exam_id || null;
+  const resolvedPdfId = pdfId || pdf_id || null;
+  const exam = resolvedExamId
+    ? store.collection("exams").find((item) => item.id === resolvedExamId)
+    : null;
+  const pdf = resolvedPdfId
+    ? store.collection("pdfs").find((item) => item.id === resolvedPdfId)
+    : null;
 
-  const total = Number(count || exam.totalQuestions || 5);
-  const questions = Array.from({ length: total }, (_, index) => {
+  if (resolvedExamId && !exam) return fail(res, 404, "Exam not found");
+  if (!pdf) return fail(res, 404, "PDF not found");
+
+  const total = Number(count || num_questions || exam?.totalQuestions || 5);
+  const generated = await generateQuestionsFromPdf({
+    pdf,
+    count: total,
+    difficulty,
+    typeCounts,
+    difficultyCounts
+  });
+
+  if (!exam) {
+    return created(res, { questions: generated }, "Questions generated");
+  }
+
+  const questions = generated.map((question) => {
     return store.insert("questions", {
       examId: exam.id,
       exam_id: exam.id,
-      question: `Generated question ${index + 1} for ${exam.title}`,
-      options: ["A", "B", "C", "D"].map((label) => ({ label, text: `Option ${label}` })),
-      correctOption: "A",
-      correct_option: "A",
-      explanation: "Replace this generated placeholder with AI-generated content when PDF parsing is connected."
+      question: question.question,
+      question_text: question.question,
+      options: question.options,
+      correctOption: question.correctOption,
+      correct_option: question.correctOption,
+      explanation: question.explanation,
+      difficulty: question.difficulty,
+      questionType: question.questionType,
+      question_type: question.questionType
     });
   });
 
-  return created(res, { questions: await Promise.all(questions) }, "Questions generated");
+  return created(res, { questions: await Promise.all(questions) }, "Questions generated and saved");
 }));
 
 router.put("/:id", asyncHandler(async (req, res) => {

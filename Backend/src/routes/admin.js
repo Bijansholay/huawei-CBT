@@ -14,6 +14,77 @@ router.get("/students", (req, res) => {
   return ok(res, { students });
 });
 
+router.get("/admins", (req, res) => {
+  const admins = store.collection("users")
+    .filter((user) => user.role === "admin")
+    .map(store.withoutSecrets);
+  return ok(res, { admins });
+});
+
+router.post("/admins", asyncHandler(async (req, res) => {
+  const { email, password, surname, name } = req.body;
+  const cleanEmail = String(email || "").trim().toLowerCase();
+
+  if (!cleanEmail || !password) {
+    return fail(res, 400, "email and password are required");
+  }
+  if (String(password).length < 8) {
+    return fail(res, 400, "password must be at least 8 characters");
+  }
+
+  const exists = store.collection("users").some((user) => user.email === cleanEmail);
+  if (exists) return fail(res, 409, "A user with this email already exists");
+
+  const admin = await store.insert("users", {
+    matricNumber: null,
+    matric_number: null,
+    surname: surname || name || "Admin",
+    email: cleanEmail,
+    passwordHash: hashPassword(password),
+    role: "admin"
+  });
+
+  return created(res, { admin: store.withoutSecrets(admin) }, "Admin created");
+}));
+
+router.put("/admins/:id", asyncHandler(async (req, res) => {
+  const admin = store.collection("users").find((user) => user.id === req.params.id && user.role === "admin");
+  if (!admin) return fail(res, 404, "Admin not found");
+
+  const patch = {};
+  if (req.body.email !== undefined) {
+    const cleanEmail = String(req.body.email || "").trim().toLowerCase();
+    if (!cleanEmail) return fail(res, 400, "email cannot be empty");
+
+    const exists = store.collection("users").some((user) => user.id !== admin.id && user.email === cleanEmail);
+    if (exists) return fail(res, 409, "A user with this email already exists");
+    patch.email = cleanEmail;
+  }
+  if (req.body.surname || req.body.name) patch.surname = String(req.body.surname || req.body.name).trim();
+  if (req.body.password) {
+    if (String(req.body.password).length < 8) return fail(res, 400, "password must be at least 8 characters");
+    patch.passwordHash = hashPassword(req.body.password);
+  }
+
+  const updated = await store.update("users", req.params.id, patch);
+  return ok(res, { admin: store.withoutSecrets(updated) }, "Admin updated");
+}));
+
+router.delete("/admins/:id", asyncHandler(async (req, res) => {
+  if (req.params.id === req.user.id) {
+    return fail(res, 400, "You cannot delete your own admin account");
+  }
+
+  const admin = store.collection("users").find((user) => user.id === req.params.id && user.role === "admin");
+  if (!admin) return fail(res, 404, "Admin not found");
+
+  const adminCount = store.collection("users").filter((user) => user.role === "admin").length;
+  if (adminCount <= 1) return fail(res, 400, "At least one admin account is required");
+
+  await store.remove("users", req.params.id);
+  return ok(res, null, "Admin deleted");
+}));
+
 router.post("/students", asyncHandler(async (req, res) => {
   const { matricNumber, matric_number, surname, email, password } = req.body;
   const matric = String(matricNumber || matric_number || "").trim();

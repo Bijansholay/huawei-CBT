@@ -50,10 +50,15 @@ CREATE TABLE IF NOT EXISTS questions (
   question TEXT NOT NULL,
   options JSONB NOT NULL,
   correct_option VARCHAR(10) NOT NULL,
+  question_type VARCHAR(20) DEFAULT 'single',
+  difficulty VARCHAR(20) DEFAULT 'medium',
   explanation TEXT,
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()
 );
+
+ALTER TABLE questions ADD COLUMN IF NOT EXISTS question_type VARCHAR(20) DEFAULT 'single';
+ALTER TABLE questions ADD COLUMN IF NOT EXISTS difficulty VARCHAR(20) DEFAULT 'medium';
 
 CREATE TABLE IF NOT EXISTS exam_sessions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

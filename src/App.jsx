@@ -14,6 +14,7 @@ import StudentManagement from './pages/admin/StudentManagement';
 import ExamManagement from './pages/admin/ExamManagement';
 import QuestionBank from './pages/admin/QuestionBank';
 import ResultManagement from './pages/admin/ResultManagement';
+import AdminManagement from './pages/admin/AdminManagement';
 
 function App() {
   return (
@@ -35,6 +36,7 @@ function App() {
               <Route path="exams" element={<ExamManagement />} />
               <Route path="questions" element={<QuestionBank />} />
               <Route path="results" element={<ResultManagement />} />
+              <Route path="admins" element={<AdminManagement />} />
             </Route>
 
             {/* Fallback */}

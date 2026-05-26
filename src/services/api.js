@@ -152,11 +152,44 @@ export async function createQuestion(question) {
   return result.data;
 }
 
-export async function generateQuestions(examId, count = 10) {
+export async function generateQuestions(pdfId, count = 10, difficulty = 'medium', options = {}) {
   const result = await apiFetch('/questions/generate', {
     method: 'POST',
-    body: JSON.stringify({ examId, count })
+    body: JSON.stringify({
+      pdfId,
+      count,
+      difficulty,
+      typeCounts: options.typeCounts,
+      difficultyCounts: options.difficultyCounts,
+      examId: options.examId
+    })
   });
+  return result.data;
+}
+
+export async function listAdmins() {
+  const result = await apiFetch('/admin/admins');
+  return result.data;
+}
+
+export async function createAdmin(admin) {
+  const result = await apiFetch('/admin/admins', {
+    method: 'POST',
+    body: JSON.stringify(admin)
+  });
+  return result.data;
+}
+
+export async function updateAdmin(adminId, admin) {
+  const result = await apiFetch(`/admin/admins/${adminId}`, {
+    method: 'PUT',
+    body: JSON.stringify(admin)
+  });
+  return result.data;
+}
+
+export async function deleteAdmin(adminId) {
+  const result = await apiFetch(`/admin/admins/${adminId}`, { method: 'DELETE' });
   return result.data;
 }
 

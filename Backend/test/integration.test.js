@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 
+process.env.NODE_ENV = "development";
 process.env.DATA_FILE = path.join("/private/tmp", `huawei-cbt-test-${process.pid}.json`);
 process.env.STORAGE_DRIVER = "file";
 process.env.ADMIN_EMAIL = "admin@test.local";

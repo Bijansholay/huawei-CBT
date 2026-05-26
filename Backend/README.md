@@ -1,26 +1,54 @@
 # Huawei CBT Backend
 
-Express backend for the Huawei CBT assessment portal.
+Express API for the Huawei CBT assessment portal.
 
-## Features
+## How The Frontend Talks To It
 
-- JWT-style signed token authentication
-- Student login with matric number and surname
-- Admin login with email and password
-- Admin student management
-- Admin exam management
-- Student enrollment
-- Student exam start, submit, and result lookup
-- PDF upload metadata endpoint
-- Question CRUD and placeholder question generation
-- Supabase production storage
-- File storage fallback for local development
-- Production CORS, rate limiting, Helmet security headers, request IDs, and graceful shutdown
+The frontend developer should call the deployed backend over HTTP, not a local path.
+
+Use this in the frontend:
+
+```env
+VITE_API_URL=https://your-backend-domain.com/api
+```
+
+If the backend is deployed on Cloud Run, the public URL will look like:
+
+```text
+https://huawei-cbt-backend-xxxxx-uc.a.run.app
+```
+
+So the frontend API base becomes:
+
+```text
+https://huawei-cbt-backend-xxxxx-uc.a.run.app/api
+```
+
+For browser requests to work, the backend must allow the frontend origin:
+
+```env
+CORS_ORIGIN=https://your-frontend-domain.com
+```
+
+You can allow more than one origin with commas:
+
+```env
+CORS_ORIGIN=https://your-frontend-domain.com,https://staging-frontend-domain.com
+```
+
+Protected endpoints need:
+
+```http
+Authorization: Bearer <token>
+```
+
+The token comes from `POST /api/auth/login`.
 
 ## Requirements
 
 - Node.js 20+
 - Supabase project for production storage
+- OpenAI API key for AI question generation
 
 ## Local Development
 
@@ -30,7 +58,9 @@ Install dependencies:
 npm install
 ```
 
-Create `.env` from `.env.example`, then for local testing use:
+Create `.env` from `.env.example`.
+
+For local testing:
 
 ```env
 NODE_ENV=development
@@ -40,6 +70,7 @@ JWT_SECRET=local-development-secret-at-least-32-characters
 ADMIN_EMAIL=admin@example.com
 ADMIN_PASSWORD=admin12345
 CORS_ORIGIN=http://localhost:5173
+OPENAI_API_KEY=your-openai-api-key
 ```
 
 Start the backend:
@@ -59,7 +90,7 @@ GET http://localhost:3000/api/ready
 
 Run `sql/schema.sql` in the Supabase SQL Editor before deploying.
 
-Set these production environment variables:
+Set these production variables:
 
 ```env
 NODE_ENV=production
@@ -76,6 +107,8 @@ TRUST_PROXY=true
 BODY_LIMIT=1mb
 RATE_LIMIT_WINDOW_MS=900000
 RATE_LIMIT_MAX=300
+OPENAI_API_KEY=your-openai-api-key
+OPENAI_MODEL=gpt-4o-mini
 ```
 
 Production command:
@@ -84,26 +117,11 @@ Production command:
 npm run start:prod
 ```
 
-The server will refuse to start in production if required secrets, CORS origin, or Supabase settings are missing.
+The server refuses to start in production if required secrets, CORS origin, or Supabase settings are missing.
 
-## Default Admin
+## Response Shape
 
-The first admin user is seeded automatically when storage is empty.
-
-For local development, if you use the sample values:
-
-```json
-{
-  "email": "admin@example.com",
-  "password": "admin12345"
-}
-```
-
-Use a strong `ADMIN_PASSWORD` in production.
-
-## API Response Shape
-
-Successful responses:
+Success:
 
 ```json
 {
@@ -113,7 +131,7 @@ Successful responses:
 }
 ```
 
-Failed responses:
+Error:
 
 ```json
 {
@@ -123,56 +141,154 @@ Failed responses:
 }
 ```
 
-## Main Endpoints
+## Authentication
 
-Auth:
+Student login:
 
-- `POST /api/auth/register`
-- `POST /api/auth/login`
-- `POST /api/auth/logout`
-- `GET /api/auth/me`
+```json
+{
+  "matricNumber": "CST/2021/001",
+  "surname": "Adeleke"
+}
+```
 
-Admin exams:
+Admin login:
 
-- `POST /api/exams`
-- `GET /api/exams`
-- `GET /api/exams/:id`
-- `PUT /api/exams/:id`
-- `DELETE /api/exams/:id`
-- `POST /api/exams/:id/enroll`
-- `GET /api/exams/:id/students`
+```json
+{
+  "email": "admin@example.com",
+  "password": "admin-password"
+}
+```
 
-Admin students:
+Login returns:
 
-- `GET /api/admin/students`
-- `POST /api/admin/students`
-- `PUT /api/admin/students/:id`
-- `DELETE /api/admin/students/:id`
+```json
+{
+  "user": { "...": "..." },
+  "token": "signed-token"
+}
+```
 
-Admin results:
+## Endpoint Reference
 
-- `GET /api/admin/results`
-- `GET /api/admin/results/exam/:examId`
+### System
 
-Student exams:
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/` | Service status |
+| `GET` | `/api/health` | Basic health check |
+| `GET` | `/api/ready` | Readiness check and active storage driver |
 
-- `GET /api/student/exams`
-- `GET /api/student/exams/:id`
-- `POST /api/student/exams/:id/start`
-- `POST /api/exams/:examId/submit`
-- `GET /api/exams/:examId/results`
+### Auth
 
-PDF and questions:
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `POST` | `/api/auth/register` | Create a student account |
+| `POST` | `/api/auth/login` | Login student or admin |
+| `POST` | `/api/auth/logout` | Logout current session on the client |
+| `GET` | `/api/auth/me` | Get the current authenticated user |
 
-- `GET /api/pdf`
-- `POST /api/pdf/upload`
-- `GET /api/pdf/:id`
-- `DELETE /api/pdf/:id`
-- `GET /api/questions`
-- `POST /api/questions`
-- `POST /api/questions/generate`
-- `PUT /api/questions/:id`
-- `DELETE /api/questions/:id`
+### Admin: Students
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/admin/students` | List all students |
+| `POST` | `/api/admin/students` | Create a student |
+| `PUT` | `/api/admin/students/:id` | Update a student |
+| `DELETE` | `/api/admin/students/:id` | Delete a student |
+
+### Admin: Admin Accounts
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/admin/admins` | List all admin accounts |
+| `POST` | `/api/admin/admins` | Create another admin |
+| `PUT` | `/api/admin/admins/:id` | Update an admin |
+| `DELETE` | `/api/admin/admins/:id` | Delete an admin |
+
+### Admin: Results
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/admin/results` | List all completed exam results |
+| `GET` | `/api/admin/results/exam/:examId` | Results for one exam |
+
+### Admin: Exams
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/exams` | List all exams |
+| `POST` | `/api/exams` | Create an exam |
+| `GET` | `/api/exams/:id` | Get an exam and its questions |
+| `PUT` | `/api/exams/:id` | Update an exam |
+| `DELETE` | `/api/exams/:id` | Delete an exam |
+| `POST` | `/api/exams/:id/enroll` | Enroll students into an exam |
+| `GET` | `/api/exams/:id/students` | List enrolled students |
+| `POST` | `/api/exams/:examId/submit` | Submit student answers |
+| `GET` | `/api/exams/:examId/results` | Get results for an exam |
+
+### Student
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/student/exams` | List exams assigned to the current student |
+| `GET` | `/api/student/exams/:id` | Get one assigned exam with questions |
+| `POST` | `/api/student/exams/:id/start` | Start an exam session |
+
+### PDF
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/pdf` | List uploaded PDFs |
+| `POST` | `/api/pdf/upload` | Upload a PDF for AI generation |
+| `GET` | `/api/pdf/:id` | Get one PDF record |
+| `DELETE` | `/api/pdf/:id` | Delete a PDF record |
+
+### Questions
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/questions` | List questions, optionally filtered by `examId` |
+| `POST` | `/api/questions` | Create one question manually |
+| `POST` | `/api/questions/generate` | Generate questions from an uploaded PDF using OpenAI |
+| `PUT` | `/api/questions/:id` | Update a question |
+| `DELETE` | `/api/questions/:id` | Delete a question |
+
+## AI Question Generation
+
+Upload a PDF first with `POST /api/pdf/upload`.
+
+Example request:
+
+```json
+{
+  "pdfId": "pdf-uuid",
+  "count": 10,
+  "difficulty": "medium",
+  "typeCounts": {
+    "single": 7,
+    "multiple": 2,
+    "trueFalse": 1
+  },
+  "difficultyCounts": {
+    "easy": 2,
+    "medium": 6,
+    "hard": 2
+  }
+}
+```
+
+If you include `examId`, the questions are saved to that exam. Without `examId`, the API returns preview questions only.
+
+## Notes For The Frontend Developer
+
+- Set `VITE_API_URL` to the deployed backend `/api` URL.
+- Store the returned token after login.
+- Send the token in `Authorization: Bearer <token>`.
+- Call admin endpoints only with an admin token.
+- Call student endpoints only with a student token.
+- For PDF upload, send `FormData` with field name `pdf`.
 
 ## Test
 
@@ -180,14 +296,15 @@ PDF and questions:
 npm test
 ```
 
-The integration test uses `STORAGE_DRIVER=file` and exercises login, student creation, exam creation, enrollment, student start, submit, and admin results.
+The integration test covers login, student creation, exam creation, enrollment, student start, submit, and admin results.
 
 ## Deploy Checklist
 
 1. Run `sql/schema.sql` in Supabase.
-2. Set all production environment variables.
+2. Set production env vars in Cloud Run.
 3. Deploy backend.
 4. Confirm `/api/health` and `/api/ready`.
-5. Set frontend `VITE_API_URL` to this backend’s `/api` URL.
-6. Deploy frontend.
-7. Test admin login, student login, exam creation, enrollment, exam submission, and results.
+5. Give the frontend developer the deployed backend `/api` URL.
+6. Set frontend `VITE_API_URL` to that URL.
+7. Deploy frontend.
+8. Confirm login, exam flow, PDF upload, AI generation, and admin management.

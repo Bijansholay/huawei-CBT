@@ -74,7 +74,10 @@ export default function QuestionBank() {
       let pdfId = uploadResult?.id || "mock-pdf-uuid";
       
       // Step 2: Generate Questions
-      let data = await generateQuestions(pdfId, totalQuestions, 'medium').catch(() => null);
+      let data = await generateQuestions(pdfId, totalQuestions, 'medium', {
+        typeCounts,
+        difficultyCounts: counts
+      }).catch(() => null);
 
       if (!data) {
         // Fallback to mock data if backend isn't actually running during development

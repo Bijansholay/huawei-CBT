@@ -58,6 +58,7 @@ function camelizeRecord(record) {
     selectedOption: record.selected_option ?? record.selectedOption,
     isCorrect: record.is_correct ?? record.isCorrect,
     correctOption: record.correct_option ?? record.correctOption,
+    questionType: record.question_type ?? record.questionType,
     originalName: record.original_name ?? record.originalName,
     mimeType: record.mime_type ?? record.mimeType,
     uploadedBy: record.uploaded_by ?? record.uploadedBy
@@ -86,6 +87,7 @@ function toDbRecord(name, record) {
     selectedOption: "selected_option",
     isCorrect: "is_correct",
     correctOption: "correct_option",
+    questionType: "question_type",
     originalName: "original_name",
     mimeType: "mime_type",
     uploadedBy: "uploaded_by"

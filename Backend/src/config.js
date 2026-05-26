@@ -14,6 +14,8 @@ const config = {
   dataFile: process.env.DATA_FILE || "data/store.json",
   supabaseUrl: process.env.SUPABASE_URL || "",
   supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY || "",
+  openaiApiKey: process.env.OPENAI_API_KEY || "",
+  openaiModel: process.env.OPENAI_MODEL || "gpt-4o-mini",
   corsOrigins: parseOrigins(process.env.CORS_ORIGIN || "*"),
   bodyLimit: process.env.BODY_LIMIT || "1mb",
   adminEmail: process.env.ADMIN_EMAIL || "admin@example.com",
@@ -46,6 +48,9 @@ function validateProductionConfig() {
   }
   if (!config.supabaseUrl || !config.supabaseServiceKey) {
     errors.push("SUPABASE_URL and SUPABASE_SERVICE_KEY must be set in production");
+  }
+  if (!process.env.OPENAI_API_KEY) {
+    errors.push("OPENAI_API_KEY must be set in production for AI question generation");
   }
 
   if (errors.length) {
