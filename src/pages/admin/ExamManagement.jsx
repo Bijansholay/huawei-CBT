@@ -60,7 +60,6 @@ export default function ExamManagement() {
 
   const totalGenerationTypes = generationTypeCounts.single + generationTypeCounts.multiple + generationTypeCounts.trueFalse;
   const totalGenerationDiffs = generationCounts.easy + generationCounts.medium + generationCounts.hard;
-  const generationSumsMatch = totalGenerationTypes === totalGenerationDiffs;
 
   const resetForm = () => {
     setEditingExamId('');
@@ -185,10 +184,6 @@ export default function ExamManagement() {
     if (!generationExam) return;
     if (!generationFile) {
       setGenerationError('Please upload a PDF file first.');
-      return;
-    }
-    if (!generationSumsMatch) {
-      setGenerationError(`Mismatch: Requested ${totalGenerationTypes} question types but ${totalGenerationDiffs} difficulty levels.`);
       return;
     }
 
@@ -592,7 +587,7 @@ export default function ExamManagement() {
                   <div className="bg-gray-50/50 rounded-[1.5rem] p-4 border border-gray-100">
                     <div className="flex justify-between items-center mb-3">
                       <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Difficulty Settings</h4>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${generationSumsMatch ? 'text-green-600 bg-green-50' : 'text-red-600 bg-red-50'}`}>Total: {totalGenerationDiffs}</span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full text-gray-600 bg-gray-100">Difficulty total: {totalGenerationDiffs}</span>
                     </div>
                     <div className="grid grid-cols-3 gap-3">
                       <input type="number" min="0" value={generationCounts.easy} onChange={(e) => setGenerationCounts({ ...generationCounts, easy: parseInt(e.target.value) || 0 })} className="w-full px-3 py-2 bg-white border border-gray-100 rounded-xl text-sm text-center" />
@@ -619,7 +614,7 @@ export default function ExamManagement() {
                 </button>
                 <button
                   onClick={handleGenerateQuestions}
-                  disabled={isGeneratingQuestions || !generationFile || !generationSumsMatch}
+                  disabled={isGeneratingQuestions || !generationFile}
                   className="pill-button bg-gray-900 text-white disabled:opacity-60"
                 >
                   {isGeneratingQuestions ? 'Generating...' : 'Generate and Save'}

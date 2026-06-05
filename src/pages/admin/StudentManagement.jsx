@@ -67,13 +67,22 @@ export default function StudentManagement() {
 
     try {
       if (editingStudentId) {
-        const payload = { ...form };
-        if (!payload.password) delete payload.password;
-        if (!payload.email) payload.email = null;
+        const payload = {
+          matricNumber: form.matricNumber.trim(),
+          surname: form.surname.trim()
+        };
+        if (form.email.trim()) payload.email = form.email.trim();
+        if (form.password.trim()) payload.password = form.password;
         await updateStudent(editingStudentId, payload);
         setSuccess('Student updated successfully.');
       } else {
-        await createStudent(form);
+        const payload = {
+          matricNumber: form.matricNumber.trim(),
+          surname: form.surname.trim()
+        };
+        if (form.email.trim()) payload.email = form.email.trim();
+        if (form.password.trim()) payload.password = form.password;
+        await createStudent(payload);
         setSuccess('Student added successfully.');
       }
       resetForm();

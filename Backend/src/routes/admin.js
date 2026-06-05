@@ -128,14 +128,19 @@ router.post("/students", asyncHandler(async (req, res) => {
   const exists = store.collection("users").some((user) => user.matricNumber === matric);
   if (exists) return fail(res, 409, "A student with this matric number already exists");
 
-  const student = await store.insert("users", {
+  const studentRecord = {
     matricNumber: matric,
     matric_number: matric,
     surname: String(surname).trim(),
-    email: email ? String(email).toLowerCase() : null,
-    passwordHash: password ? hashPassword(password) : null,
+    passwordHash: hashPassword(password || `${matric}-${store.uuid()}`),
     role: "student"
-  });
+  };
+
+  if (email && String(email).trim()) {
+    studentRecord.email = String(email).trim().toLowerCase();
+  }
+
+  const student = await store.insert("users", studentRecord);
 
   return created(res, { student: store.withoutSecrets(student) }, "Student created");
 }));

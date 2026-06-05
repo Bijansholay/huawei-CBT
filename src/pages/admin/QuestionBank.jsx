@@ -62,7 +62,6 @@ export default function QuestionBank() {
 
   const totalTypes = typeCounts.single + typeCounts.multiple + typeCounts.trueFalse;
   const totalDiffs = counts.easy + counts.medium + counts.hard;
-  const sumsMatch = totalTypes === totalDiffs;
 
   const examMap = useMemo(() => {
     return new Map(exams.map((exam) => [exam.id, exam]));
@@ -130,11 +129,6 @@ export default function QuestionBank() {
 
     if (totalTypes === 0) {
       setError('Please request at least one question type.');
-      return;
-    }
-
-    if (!sumsMatch) {
-      setError(`Mismatch: Requested ${totalTypes} question types but ${totalDiffs} difficulty levels. They must match.`);
       return;
     }
 
