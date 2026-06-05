@@ -4,6 +4,27 @@ import { useExam } from '../../context/ExamContext';
 import { Clock, Flag, ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+function normalizeOptions(options) {
+  if (Array.isArray(options)) {
+    return options.slice(0, 4).map((option, index) => {
+      const label = String(option?.label || String.fromCharCode(65 + index)).toUpperCase();
+      const text = typeof option === 'string'
+        ? option
+        : String(option?.text || option?.value || option?.optionText || option?.label || '');
+      return { label, text };
+    }).filter((option) => option.text !== '');
+  }
+
+  if (options && typeof options === 'object') {
+    return Object.entries(options).map(([label, text]) => ({
+      label: String(label).toUpperCase(),
+      text: String(text)
+    }));
+  }
+
+  return [];
+}
+
 export default function ExamPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -42,6 +63,7 @@ export default function ExamPage() {
   }, [id, startExam]);
 
   const currentQ = currentQuestions[currentQIndex];
+  const currentOptions = useMemo(() => normalizeOptions(currentQ?.options), [currentQ]);
   const answeredCount = useMemo(() => Object.keys(answers).length, [answers]);
 
   const formatTime = (seconds) => {
@@ -218,9 +240,8 @@ export default function ExamPage() {
                 </h2>
 
                 <div className="space-y-2.5">
-                  {(currentQ.options || []).map((opt, i) => {
-                    const value = typeof opt === 'string' ? opt : opt.text || opt.label;
-                    const isChecked = answers[currentQ.id] === value;
+                  {currentOptions.map((opt, i) => {
+                    const isChecked = answers[currentQ.id] === opt.label;
 
                     return (
                       <label key={i} className={`flex items-center p-3 rounded-xl border cursor-pointer transition-all ${
@@ -233,8 +254,8 @@ export default function ExamPage() {
                         }`}>
                           {isChecked && <div className="w-2 h-2 bg-brand-500 rounded-full" />}
                         </div>
-                        <input type="radio" className="hidden" checked={isChecked} onChange={() => handleAnswerChange(value)} />
-                        <span className="text-gray-800 text-sm font-medium leading-snug">{value}</span>
+                        <input type="radio" className="hidden" checked={isChecked} onChange={() => handleAnswerChange(opt.label)} />
+                        <span className="text-gray-800 text-sm font-medium leading-snug">{opt.text}</span>
                       </label>
                     );
                   })}

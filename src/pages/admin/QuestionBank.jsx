@@ -4,11 +4,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   createQuestion,
   deleteQuestion,
-  generateQuestions,
+  generateQuestionsFromFile,
   listExams,
   listQuestions,
-  updateQuestion,
-  uploadPDF
+  updateQuestion
 } from '../../services/api';
 
 const emptyForm = {
@@ -143,8 +142,7 @@ export default function QuestionBank() {
     setError(null);
 
     try {
-      const uploadResult = await uploadPDF(file);
-      const data = await generateQuestions(uploadResult?.id, totalTypes, 'medium', {
+      const data = await generateQuestionsFromFile(file, totalTypes, 'medium', {
         typeCounts,
         difficultyCounts: counts,
         examId: selectedExamId

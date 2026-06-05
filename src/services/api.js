@@ -219,6 +219,23 @@ export async function generateQuestions(pdfId, count = 10, difficulty = 'medium'
   return result.data;
 }
 
+export async function generateQuestionsFromFile(file, count = 10, difficulty = 'medium', options = {}) {
+  const formData = new FormData();
+  formData.append('pdf', file);
+  formData.append('count', String(count));
+  formData.append('difficulty', difficulty);
+  if (options.typeCounts) formData.append('typeCounts', JSON.stringify(options.typeCounts));
+  if (options.difficultyCounts) formData.append('difficultyCounts', JSON.stringify(options.difficultyCounts));
+  if (options.examId) formData.append('examId', options.examId);
+
+  const result = await apiFetch('/questions/generate', {
+    method: 'POST',
+    body: formData
+  });
+
+  return result.data;
+}
+
 export async function listAdmins() {
   const result = await apiFetch('/admin/admins');
   return result.data;

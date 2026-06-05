@@ -66,7 +66,10 @@ app.use((err, req, res, next) => {
     error: err.message,
     stack: config.isProduction ? undefined : err.stack
   });
-  return fail(res, status, status === 403 ? err.message : "Internal server error");
+  const message = status === 403
+    ? err.message
+    : `Internal server error. Reference: ${req.id}`;
+  return fail(res, status, message);
 });
 
 module.exports = app;

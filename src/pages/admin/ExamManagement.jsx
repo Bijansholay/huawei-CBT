@@ -9,8 +9,7 @@ import {
   listExams,
   listStudents,
   updateExam,
-  generateQuestions,
-  uploadPDF
+  generateQuestionsFromFile
 } from '../../services/api';
 
 export default function ExamManagement() {
@@ -198,8 +197,7 @@ export default function ExamManagement() {
     setGenerationSuccess('');
 
     try {
-      const uploadResult = await uploadPDF(generationFile);
-      await generateQuestions(uploadResult?.id, totalGenerationTypes, 'medium', {
+      await generateQuestionsFromFile(generationFile, totalGenerationTypes, 'medium', {
         typeCounts: generationTypeCounts,
         difficultyCounts: generationCounts,
         examId: generationExam.id

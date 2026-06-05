@@ -5,6 +5,52 @@ const { ok, created, fail, asyncHandler } = require("../utils/http");
 
 const router = express.Router();
 
+const OPTION_LABELS = ["A", "B", "C", "D"];
+
+function normalizeOptions(options) {
+  if (Array.isArray(options)) {
+    return options.slice(0, 4).map((option, index) => {
+      if (typeof option === "string") {
+        return { label: OPTION_LABELS[index] || String(index + 1), text: option };
+      }
+
+      if (option && typeof option === "object") {
+        return {
+          label: String(option.label || OPTION_LABELS[index] || String(index + 1)).toUpperCase(),
+          text: String(option.text || option.value || option.optionText || option.label || "")
+        };
+      }
+
+      return { label: OPTION_LABELS[index] || String(index + 1), text: String(option ?? "") };
+    }).filter((option) => option.text !== "");
+  }
+
+  if (options && typeof options === "object") {
+    return Object.entries(options).map(([label, text]) => ({
+      label: String(label).toUpperCase(),
+      text: String(text)
+    }));
+  }
+
+  return [];
+}
+
+function resolveOptionLabel(value, options) {
+  if (value === undefined || value === null) return "";
+  const target = String(value).trim();
+  if (!target) return "";
+  const normalizedTarget = target.toLowerCase();
+  const upperTarget = target.toUpperCase();
+
+  const byLabel = options.find((option) => String(option.label || "").toUpperCase() === upperTarget);
+  if (byLabel) return String(byLabel.label || "").toUpperCase();
+
+  const byText = options.find((option) => String(option.text || "").trim().toLowerCase() === normalizedTarget);
+  if (byText) return String(byText.label || "").toUpperCase();
+
+  return upperTarget;
+}
+
 router.get("/", authenticate, requireRole("admin"), (req, res) => {
   return ok(res, { exams: store.collection("exams") });
 });
@@ -135,48 +181,107 @@ router.post("/:examId/submit", authenticate, requireRole("student"), asyncHandle
   const questions = store.collection("questions").filter((item) => item.examId === exam.id);
   let score = 0;
 
-  for (const answer of answers) {
-    const question = questions.find((item) => item.id === answer.questionId || item.id === answer.question_id);
-    const selected = answer.selectedOption || answer.selected_option || answer.answer;
-    const isCorrect = question && String(question.correctOption).toUpperCase() === String(selected).toUpperCase();
-    if (isCorrect) score += 1;
+  try {
+    for (const answer of answers) {
+      const question = questions.find((item) => item.id === answer.questionId || item.id === answer.question_id);
+      const selected = answer.selectedOption || answer.selected_option || answer.answer;
+      const options = normalizeOptions(question?.options);
+      const correctLabel = resolveOptionLabel(question?.correctOption || question?.correct_option, options);
+      const selectedLabel = resolveOptionLabel(selected, options);
+      const isCorrect = question
+        ? (correctLabel && selectedLabel ? correctLabel === selectedLabel : String(question.correctOption || question.correct_option || "").trim().toLowerCase() === String(selected || "").trim().toLowerCase())
+        : false;
+      if (isCorrect) score += 1;
 
-    await store.insert("examAnswers", {
-      sessionId: session.id,
-      session_id: session.id,
-      questionId: question ? question.id : answer.questionId || answer.question_id,
-      question_id: question ? question.id : answer.questionId || answer.question_id,
-      selectedOption: selected,
-      selected_option: selected,
-      isCorrect: Boolean(isCorrect),
-      is_correct: Boolean(isCorrect)
+      await store.insert("examAnswers", {
+        sessionId: session.id,
+        session_id: session.id,
+        questionId: question ? question.id : answer.questionId || answer.question_id,
+        question_id: question ? question.id : answer.questionId || answer.question_id,
+        selectedOption: selected,
+        selected_option: selected,
+        isCorrect: Boolean(isCorrect),
+        is_correct: Boolean(isCorrect)
+      });
+    }
+
+    const completedAt = store.now();
+    let completed = null;
+    try {
+      completed = await store.update("examSessions", session.id, {
+        status: "completed",
+        completedAt,
+        completed_at: completedAt,
+        score,
+        totalQuestions: questions.length || Number(exam.totalQuestions) || answers.length
+      });
+    } catch (err) {
+      console.error({
+        requestId: req.id,
+        method: req.method,
+        path: req.originalUrl,
+        error: err.message,
+        stack: err.stack
+      });
+    }
+
+    if (!completed) {
+      completed = {
+        ...session,
+        status: "completed",
+        completedAt,
+        completed_at: completedAt,
+        score,
+        totalQuestions: questions.length || Number(exam.totalQuestions) || answers.length
+      };
+      Object.assign(session, completed);
+    }
+
+    return ok(res, { result: completed }, "Exam submitted");
+  } catch (err) {
+    console.error({
+      requestId: req.id,
+      method: req.method,
+      path: req.originalUrl,
+      examId: req.params.examId,
+      studentId: req.user.id,
+      answersCount: answers.length,
+      error: err.message,
+      stack: err.stack
     });
+    return fail(res, 500, `Failed to submit exam. Reference: ${req.id}`);
   }
-
-  const completed = await store.update("examSessions", session.id, {
-    status: "completed",
-    completedAt: store.now(),
-    completed_at: store.now(),
-    score,
-    totalQuestions: questions.length || Number(exam.totalQuestions)
-  });
-
-  return ok(res, { result: completed }, "Exam submitted");
 }));
 
 router.get("/:examId/results", authenticate, (req, res) => {
-  const sessions = store.collection("examSessions").filter((session) => {
-    const sameExam = session.examId === req.params.examId;
-    return req.user.role === "admin" ? sameExam : sameExam && session.studentId === req.user.id;
+  const exam = store.collection("exams").find((item) => item.id === req.params.examId);
+  if (!exam) return fail(res, 404, "Exam not found");
+
+  const sessions = getExamSessions(req.params.examId).filter((session) => {
+    return req.user.role === "admin" ? true : session.studentId === req.user.id;
   });
 
-  return ok(res, { results: sessions });
+  return ok(res, { exam, results: sessions });
 });
 
 function getActiveSession(examId, studentId) {
   return store.collection("examSessions").find((session) => {
     return session.examId === examId && session.studentId === studentId && session.status === "active";
   });
+}
+
+function getExamSessions(examId) {
+  return store.collection("examSessions")
+    .filter((session) => session.examId === examId && session.status === "completed")
+    .map((session) => ({
+      ...session,
+      percentage: session.totalQuestions ? Math.round((Number(session.score || 0) / Number(session.totalQuestions || 1)) * 100) : 0
+    }))
+    .sort((a, b) => {
+      const aTime = new Date(a.completedAt || a.startedAt || 0).getTime();
+      const bTime = new Date(b.completedAt || b.startedAt || 0).getTime();
+      return bTime - aTime;
+    });
 }
 
 module.exports = router;

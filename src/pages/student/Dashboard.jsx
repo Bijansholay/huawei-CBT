@@ -38,7 +38,9 @@ export default function Dashboard() {
               Start any enrolled exam when it becomes available.
             </p>
             <div className="flex items-center gap-3">
-              <button className="pill-button bg-gray-900 text-white">Refresh List</button>
+              <button onClick={() => loadExams().catch(() => {})} className="pill-button bg-gray-900 text-white">
+                Refresh List
+              </button>
               <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-xl">
                 📚
               </div>

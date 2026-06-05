@@ -6,6 +6,43 @@ const { ok, fail, asyncHandler } = require("../utils/http");
 const router = express.Router();
 router.use(authenticate, requireRole("student"));
 
+const OPTION_LABELS = ["A", "B", "C", "D"];
+
+function normalizeOptions(options) {
+  if (Array.isArray(options)) {
+    return options.slice(0, 4).map((option, index) => {
+      if (typeof option === "string") {
+        return { label: OPTION_LABELS[index] || String(index + 1), text: option };
+      }
+
+      if (option && typeof option === "object") {
+        return {
+          label: String(option.label || OPTION_LABELS[index] || String(index + 1)).toUpperCase(),
+          text: String(option.text || option.value || option.optionText || option.label || "")
+        };
+      }
+
+      return { label: OPTION_LABELS[index] || String(index + 1), text: String(option ?? "") };
+    }).filter((option) => option.text !== "");
+  }
+
+  if (options && typeof options === "object") {
+    return Object.entries(options).map(([label, text]) => ({
+      label: String(label).toUpperCase(),
+      text: String(text)
+    }));
+  }
+
+  return [];
+}
+
+function normalizeStudentQuestion(question) {
+  return {
+    ...question,
+    options: normalizeOptions(question.options)
+  };
+}
+
 router.get("/exams", (req, res) => {
   const enrolledExamIds = store.collection("examEnrollments")
     .filter((item) => item.studentId === req.user.id && !item.deleted)
@@ -23,7 +60,7 @@ router.get("/exams/:id", (req, res) => {
 
   const questions = store.collection("questions")
     .filter((item) => item.examId === exam.id)
-    .map(({ correctOption, correct_option, ...question }) => question);
+    .map(({ correctOption, correct_option, ...question }) => normalizeStudentQuestion(question));
 
   return ok(res, { exam, questions });
 });

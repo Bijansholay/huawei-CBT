@@ -192,6 +192,11 @@ function buildResults() {
         startedAt: session.startedAt,
         completedAt: session.completedAt
       };
+    })
+    .sort((a, b) => {
+      const aTime = new Date(a.completedAt || a.startedAt || 0).getTime();
+      const bTime = new Date(b.completedAt || b.startedAt || 0).getTime();
+      return bTime - aTime;
     });
 }
 

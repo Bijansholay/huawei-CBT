@@ -11,6 +11,7 @@ export default function ResultPage() {
   const navigate = useNavigate();
   const { lastSubmission } = useExam();
   const [result, setResult] = useState(null);
+  const [examTitle, setExamTitle] = useState('');
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -20,9 +21,12 @@ export default function ResultPage() {
       try {
         const data = await getExamResults(id);
         const sessions = data.results || [];
-        const latest = sessions[sessions.length - 1] || null;
+        const latest = sessions[0] || null;
         if (active) {
-          Promise.resolve().then(() => setResult(latest));
+          Promise.resolve().then(() => {
+            setExamTitle(data.exam?.title || '');
+            setResult(latest);
+          });
         }
       } catch (err) {
         if (active) {
@@ -33,7 +37,6 @@ export default function ResultPage() {
 
     if (lastSubmission?.examId === id && lastSubmission.result) {
       Promise.resolve().then(() => setResult(lastSubmission.result));
-      return undefined;
     }
 
     loadResult();
@@ -46,13 +49,15 @@ export default function ResultPage() {
     if (!result) return null;
     const totalQuestions = Number(result.totalQuestions || 0);
     const score = Number(result.score || 0);
+    const percentage = Number(result.percentage ?? (totalQuestions ? Math.round((score / totalQuestions) * 100) : 0));
     const correctAnswers = score;
     const wrongAnswers = Math.max(0, totalQuestions - score);
     return {
-      score: totalQuestions ? Math.round((score / totalQuestions) * 100) : 0,
+      score: percentage,
       totalQuestions,
       correctAnswers,
       wrongAnswers,
+      status: percentage >= 50 ? 'Passed' : 'Needs Review',
       timeTaken: result.completedAt && result.startedAt
         ? `${Math.max(0, Math.round((new Date(result.completedAt) - new Date(result.startedAt)) / 60000))}m`
         : 'N/A'
@@ -86,7 +91,7 @@ export default function ResultPage() {
                 </div>
                 <div>
                   <h1 className="text-xl font-bold text-gray-900 mb-0.5">Assessment Complete</h1>
-                  <p className="text-gray-500 text-xs font-semibold">{result?.exam?.title || 'Result summary'}</p>
+                  <p className="text-gray-500 text-xs font-semibold">{result?.exam?.title || examTitle || 'Result summary'}</p>
                 </div>
               </div>
 
@@ -116,6 +121,12 @@ export default function ResultPage() {
                     </div>
                     <div className="text-sm font-bold text-gray-900 mt-1">{summary.timeTaken}</div>
                   </div>
+                  <div className="bg-white border border-gray-100 shadow-sm rounded-xl p-3 text-center min-w-[90px]">
+                    <div className="flex justify-center items-center gap-1 text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1">
+                      <Target size={12} className="text-gray-400" /> Status
+                    </div>
+                    <div className="text-sm font-bold text-gray-900 mt-1">{summary.status}</div>
+                  </div>
                 </div>
               ) : (
                 <div className="relative z-10 text-sm text-gray-500">Loading result summary...</div>
@@ -142,8 +153,12 @@ export default function ResultPage() {
             {error ? (
               <div className="soft-card p-5 text-sm text-red-600">{error}</div>
             ) : result ? (
-              <div className="soft-card p-5 text-sm text-gray-600">
-                Detailed per-question review is not available yet. The live result summary above comes from your submitted exam record.
+              <div className="soft-card p-5 text-sm text-gray-600 space-y-2">
+                <p className="font-semibold text-gray-900">Result saved successfully.</p>
+                <p>Detailed per-question review is not available yet. The live summary above reflects your latest submitted attempt.</p>
+                <p className="text-xs text-gray-500">
+                  Attempt ID: {result.id} {result.completedAt ? `• Submitted ${new Date(result.completedAt).toLocaleString()}` : ''}
+                </p>
               </div>
             ) : (
               <div className="soft-card p-5 text-sm text-gray-500">No result data found for this exam.</div>
