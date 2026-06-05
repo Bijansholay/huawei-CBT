@@ -75,19 +75,40 @@ router.post("/exams/:id/start", asyncHandler(async (req, res) => {
   });
   if (existing) return ok(res, { session: existing }, "Exam session already active");
 
-  const session = await store.insert("examSessions", {
-    examId: exam.id,
-    exam_id: exam.id,
-    studentId: req.user.id,
-    student_id: req.user.id,
-    status: "active",
-    startedAt: store.now(),
-    started_at: store.now(),
-    completedAt: null,
-    completed_at: null,
-    score: null,
-    totalQuestions: Number(exam.totalQuestions || exam.total_questions)
-  });
+  const startedAt = store.now();
+  let session;
+  try {
+    session = await store.insert("examSessions", {
+      examId: exam.id,
+      exam_id: exam.id,
+      studentId: req.user.id,
+      student_id: req.user.id,
+      status: "active",
+      startedAt,
+      started_at: startedAt,
+      completedAt: null,
+      completed_at: null,
+      score: null,
+      totalQuestions: Number(exam.totalQuestions || exam.total_questions)
+    });
+  } catch (err) {
+    console.error({
+      requestId: req.id,
+      method: req.method,
+      path: req.originalUrl,
+      examId: exam.id,
+      studentId: req.user.id,
+      error: err.message,
+      stack: err.stack
+    });
+    session = store.collection("examSessions").find((item) => {
+      return item.examId === exam.id && item.studentId === req.user.id && item.status === "active";
+    });
+
+    if (!session) {
+      return fail(res, 500, `Failed to start exam session. Reference: ${req.id}`);
+    }
+  }
 
   return ok(res, { session }, "Exam started");
 }));

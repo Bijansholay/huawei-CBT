@@ -64,6 +64,14 @@ export default function ResultPage() {
     };
   }, [result]);
 
+  const submittedScore = lastSubmission?.examId === id
+    ? {
+        score: Number(lastSubmission.score || 0),
+        totalQuestions: Number(lastSubmission.totalQuestions || 0),
+        percentage: Number(lastSubmission.percentage || 0)
+      }
+    : null;
+
   return (
     <div className="h-screen flex flex-col bg-transparent overflow-hidden">
       <Navbar />
@@ -126,6 +134,39 @@ export default function ResultPage() {
                       <Target size={12} className="text-gray-400" /> Status
                     </div>
                     <div className="text-sm font-bold text-gray-900 mt-1">{summary.status}</div>
+                  </div>
+                </div>
+              ) : submittedScore ? (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 relative z-10 w-full md:w-auto">
+                  <div className="bg-white border border-gray-100 shadow-sm rounded-xl p-3 text-center min-w-[90px]">
+                    <div className="flex justify-center items-center gap-1 text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1">
+                      <Target size={12} className="text-gray-400" /> Score
+                    </div>
+                    <div className="text-lg font-bold text-gray-900">{submittedScore.percentage}%</div>
+                  </div>
+                  <div className="bg-green-50 border border-green-100 rounded-xl p-3 text-center min-w-[90px]">
+                    <div className="flex justify-center items-center gap-1 text-[10px] text-green-600 font-bold uppercase tracking-wider mb-1">
+                      <CheckCircle2 size={12} /> Correct
+                    </div>
+                    <div className="text-lg font-bold text-green-700">{submittedScore.score}</div>
+                  </div>
+                  <div className="bg-red-50 border border-red-100 rounded-xl p-3 text-center min-w-[90px]">
+                    <div className="flex justify-center items-center gap-1 text-[10px] text-red-600 font-bold uppercase tracking-wider mb-1">
+                      <XCircle size={12} /> Wrong
+                    </div>
+                    <div className="text-lg font-bold text-red-700">{Math.max(0, submittedScore.totalQuestions - submittedScore.score)}</div>
+                  </div>
+                  <div className="bg-white border border-gray-100 shadow-sm rounded-xl p-3 text-center min-w-[90px]">
+                    <div className="flex justify-center items-center gap-1 text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1">
+                      <Clock size={12} className="text-gray-400" /> Time
+                    </div>
+                    <div className="text-sm font-bold text-gray-900 mt-1">N/A</div>
+                  </div>
+                  <div className="bg-white border border-gray-100 shadow-sm rounded-xl p-3 text-center min-w-[90px]">
+                    <div className="flex justify-center items-center gap-1 text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1">
+                      <Target size={12} className="text-gray-400" /> Status
+                    </div>
+                    <div className="text-sm font-bold text-gray-900 mt-1">{submittedScore.percentage >= 50 ? 'Passed' : 'Needs Review'}</div>
                   </div>
                 </div>
               ) : (

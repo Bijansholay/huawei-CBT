@@ -52,9 +52,13 @@ export const ExamProvider = ({ children }) => {
     }
 
     const result = await submitExamRequest(resolvedExamId, answers);
+    const submission = result.result || null;
     setLastSubmission({
       examId: resolvedExamId,
-      result: result.result || null
+      result: submission,
+      score: result.score ?? submission?.score ?? 0,
+      totalQuestions: result.totalQuestions ?? submission?.totalQuestions ?? 0,
+      percentage: result.percentage ?? submission?.percentage ?? 0
     });
     setCurrentExam(null);
     setCurrentQuestions([]);

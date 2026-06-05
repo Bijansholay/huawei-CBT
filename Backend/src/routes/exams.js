@@ -181,18 +181,18 @@ router.post("/:examId/submit", authenticate, requireRole("student"), asyncHandle
   const questions = store.collection("questions").filter((item) => item.examId === exam.id);
   let score = 0;
 
-  try {
-    for (const answer of answers) {
-      const question = questions.find((item) => item.id === answer.questionId || item.id === answer.question_id);
-      const selected = answer.selectedOption || answer.selected_option || answer.answer;
-      const options = normalizeOptions(question?.options);
-      const correctLabel = resolveOptionLabel(question?.correctOption || question?.correct_option, options);
-      const selectedLabel = resolveOptionLabel(selected, options);
-      const isCorrect = question
-        ? (correctLabel && selectedLabel ? correctLabel === selectedLabel : String(question.correctOption || question.correct_option || "").trim().toLowerCase() === String(selected || "").trim().toLowerCase())
-        : false;
-      if (isCorrect) score += 1;
+  for (const answer of answers) {
+    const question = questions.find((item) => item.id === answer.questionId || item.id === answer.question_id);
+    const selected = answer.selectedOption || answer.selected_option || answer.answer;
+    const options = normalizeOptions(question?.options);
+    const correctLabel = resolveOptionLabel(question?.correctOption || question?.correct_option, options);
+    const selectedLabel = resolveOptionLabel(selected, options);
+    const isCorrect = question
+      ? (correctLabel && selectedLabel ? correctLabel === selectedLabel : String(question.correctOption || question.correct_option || "").trim().toLowerCase() === String(selected || "").trim().toLowerCase())
+      : false;
+    if (isCorrect) score += 1;
 
+    try {
       await store.insert("examAnswers", {
         sessionId: session.id,
         session_id: session.id,
@@ -203,54 +203,64 @@ router.post("/:examId/submit", authenticate, requireRole("student"), asyncHandle
         isCorrect: Boolean(isCorrect),
         is_correct: Boolean(isCorrect)
       });
-    }
-
-    const completedAt = store.now();
-    let completed = null;
-    try {
-      completed = await store.update("examSessions", session.id, {
-        status: "completed",
-        completedAt,
-        completed_at: completedAt,
-        score,
-        totalQuestions: questions.length || Number(exam.totalQuestions) || answers.length
-      });
     } catch (err) {
       console.error({
         requestId: req.id,
         method: req.method,
         path: req.originalUrl,
+        examId: req.params.examId,
+        studentId: req.user.id,
+        questionId: question ? question.id : answer.questionId || answer.question_id,
         error: err.message,
         stack: err.stack
       });
     }
+  }
 
-    if (!completed) {
-      completed = {
-        ...session,
-        status: "completed",
-        completedAt,
-        completed_at: completedAt,
-        score,
-        totalQuestions: questions.length || Number(exam.totalQuestions) || answers.length
-      };
-      Object.assign(session, completed);
-    }
-
-    return ok(res, { result: completed }, "Exam submitted");
+  const completedAt = store.now();
+  let completed = null;
+  try {
+    completed = await store.update("examSessions", session.id, {
+      status: "completed",
+      completedAt,
+      completed_at: completedAt,
+      score,
+      totalQuestions: questions.length || Number(exam.totalQuestions) || answers.length
+    });
   } catch (err) {
     console.error({
       requestId: req.id,
       method: req.method,
       path: req.originalUrl,
-      examId: req.params.examId,
-      studentId: req.user.id,
-      answersCount: answers.length,
       error: err.message,
       stack: err.stack
     });
-    return fail(res, 500, `Failed to submit exam. Reference: ${req.id}`);
   }
+
+  const totalQuestions = questions.length || Number(exam.totalQuestions) || answers.length;
+  const percentage = totalQuestions ? Math.round((Number(score || 0) / Number(totalQuestions || 1)) * 100) : 0;
+
+  if (!completed) {
+    completed = {
+      ...session,
+      status: "completed",
+      completedAt,
+      completed_at: completedAt,
+      score,
+      totalQuestions,
+      percentage
+    };
+    Object.assign(session, completed);
+  } else {
+    completed.percentage = percentage;
+  }
+
+  return ok(res, {
+    result: completed,
+    score,
+    totalQuestions,
+    percentage
+  }, "Exam submitted");
 }));
 
 router.get("/:examId/results", authenticate, (req, res) => {

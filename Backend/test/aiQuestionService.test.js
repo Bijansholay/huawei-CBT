@@ -1,0 +1,100 @@
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
+const Module = require("node:module");
+
+process.env.NODE_ENV = "development";
+process.env.OPENAI_API_KEY = "test-key";
+process.env.OPENAI_MODEL = "gpt-4o-mini";
+
+const originalLoad = Module._load;
+const originalCreateReadStream = fs.createReadStream;
+
+class FakeOpenAI {
+  constructor(options) {
+    FakeOpenAI.instances.push(options);
+    this.files = {
+      create: async (args) => {
+        FakeOpenAI.uploads.push(args);
+        return { id: "file-test-123" };
+      },
+      delete: async (id) => {
+        FakeOpenAI.deletes.push(id);
+        return true;
+      }
+    };
+    this.responses = {
+      create: async (args) => {
+        FakeOpenAI.responses.push(args);
+        return {
+          output_text: JSON.stringify({
+            questions: [
+              {
+                question: "What is 2 + 2?",
+                options: { A: "3", B: "4", C: "5", D: "6" },
+                correctOption: "B",
+                explanation: "Basic arithmetic.",
+                difficulty: "easy",
+                questionType: "single"
+              }
+            ]
+          })
+        };
+      }
+    };
+  }
+}
+
+FakeOpenAI.instances = [];
+FakeOpenAI.uploads = [];
+FakeOpenAI.responses = [];
+FakeOpenAI.deletes = [];
+
+Module._load = function patchedLoad(request, parent, isMain) {
+  if (request === "openai") return FakeOpenAI;
+  return originalLoad(request, parent, isMain);
+};
+
+const configPath = require.resolve("../src/config");
+const servicePath = require.resolve("../src/services/aiQuestionService");
+delete require.cache[configPath];
+delete require.cache[servicePath];
+
+const { generateQuestionsFromPdf } = require("../src/services/aiQuestionService");
+
+test("generateQuestionsFromPdf uploads a pdf and returns normalized questions", async () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "huawei-cbt-ai-"));
+  const pdfPath = path.join(tempDir, "sample.pdf");
+  fs.writeFileSync(pdfPath, "%PDF-1.4 test");
+  fs.createReadStream = () => ({ stub: true, path: pdfPath });
+
+  try {
+    const questions = await generateQuestionsFromPdf({
+      pdf: { path: pdfPath },
+      count: 1,
+      difficulty: "easy",
+      typeCounts: { single: 1 },
+      difficultyCounts: { easy: 1 }
+    });
+
+    assert.equal(FakeOpenAI.instances.length, 1);
+    assert.equal(FakeOpenAI.instances[0].apiKey, "test-key");
+    assert.equal(FakeOpenAI.uploads.length, 1);
+    assert.equal(FakeOpenAI.uploads[0].purpose, "user_data");
+    assert.equal(FakeOpenAI.responses.length, 1);
+    assert.equal(FakeOpenAI.responses[0].model, "gpt-4o-mini");
+    assert.equal(FakeOpenAI.responses[0].input[0].content[0].file_id, "file-test-123");
+    assert.equal(questions.length, 1);
+    assert.equal(questions[0].question, "What is 2 + 2?");
+    assert.equal(questions[0].correctOption, "B");
+    assert.equal(FakeOpenAI.deletes[0], "file-test-123");
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+    Module._load = originalLoad;
+    fs.createReadStream = originalCreateReadStream;
+    delete require.cache[configPath];
+    delete require.cache[servicePath];
+  }
+});

@@ -151,10 +151,15 @@ test("frontend integration API flow", async () => {
     }, studentToken);
     assert.equal(submit.response.status, 200);
     assert.equal(submit.json.data.result.score, 1);
+    assert.equal(submit.json.data.score, 1);
+    assert.equal(submit.json.data.totalQuestions, 1);
+    assert.equal(submit.json.data.percentage, 100);
 
     const results = await request(baseUrl, "GET", `/api/admin/results/exam/${examId}`, null, adminToken);
     assert.equal(results.response.status, 200);
     assert.equal(results.json.data.results.length, 1);
+    assert.equal(results.json.data.results[0].score, 1);
+    assert.equal(results.json.data.results[0].percentage, 100);
   } finally {
     server.close();
     if (fs.existsSync(process.env.DATA_FILE)) fs.unlinkSync(process.env.DATA_FILE);
