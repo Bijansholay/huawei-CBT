@@ -1,39 +1,89 @@
-import { createContext, useState, useContext } from 'react';
+/* eslint-disable react-refresh/only-export-components */
+import { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import { getStudentExam, listStudentExams, startStudentExam, submitExam as submitExamRequest } from '../services/api';
 
 const ExamContext = createContext();
 
 export const useExam = () => useContext(ExamContext);
 
-// Mock Data
-const MOCK_EXAMS = [
-  { id: '1', title: 'Introduction to Computer Science', duration: 60, status: 'Not Started', questionsCount: 20 },
-  { id: '2', title: 'Data Structures and Algorithms', duration: 90, status: 'Completed', score: 85, questionsCount: 40 },
-  { id: '3', title: 'Web Development Basics', duration: 45, status: 'In Progress', questionsCount: 30 }
-];
-
 export const ExamProvider = ({ children }) => {
-  const [exams, setExams] = useState(MOCK_EXAMS);
+  const [exams, setExams] = useState([]);
   const [currentExam, setCurrentExam] = useState(null);
+  const [currentQuestions, setCurrentQuestions] = useState([]);
   const [answers, setAnswers] = useState({});
+  const [lastSubmission, setLastSubmission] = useState(null);
+  const [isExamLoading, setIsExamLoading] = useState(false);
 
-  const startExam = (examId) => {
-    const exam = exams.find(e => e.id === examId);
-    setCurrentExam(exam);
-    // Fetch questions here in real app
-  };
+  const loadExams = useCallback(async () => {
+    setIsExamLoading(true);
+    try {
+      const data = await listStudentExams();
+      setExams(data.exams || []);
+      return data.exams || [];
+    } finally {
+      setIsExamLoading(false);
+    }
+  }, []);
 
-  const saveAnswer = (questionId, answer) => {
-    setAnswers(prev => ({ ...prev, [questionId]: answer }));
-  };
+  const startExam = useCallback(async (examId) => {
+    setIsExamLoading(true);
+    try {
+      const [examData] = await Promise.all([
+        getStudentExam(examId),
+        startStudentExam(examId)
+      ]);
+      setCurrentExam(examData.exam || null);
+      setCurrentQuestions(examData.questions || []);
+      setAnswers({});
+      return examData;
+    } finally {
+      setIsExamLoading(false);
+    }
+  }, []);
 
-  const submitExam = () => {
-    // API call to submit answers
+  const saveAnswer = useCallback((questionId, answer) => {
+    setAnswers((prev) => ({ ...prev, [questionId]: answer }));
+  }, []);
+
+  const submitExam = useCallback(async (examId) => {
+    const resolvedExamId = examId || currentExam?.id;
+    if (!resolvedExamId) {
+      throw new Error('No active exam to submit');
+    }
+
+    const result = await submitExamRequest(resolvedExamId, answers);
+    setLastSubmission({
+      examId: resolvedExamId,
+      result: result.result || null
+    });
     setCurrentExam(null);
+    setCurrentQuestions([]);
     setAnswers({});
-  };
+    return result;
+  }, [answers, currentExam?.id]);
+
+  const value = useMemo(() => {
+    return {
+      exams,
+      currentExam,
+      currentQuestions,
+      answers,
+      lastSubmission,
+      isExamLoading,
+      loadExams,
+      startExam,
+      saveAnswer,
+      submitExam,
+      clearCurrentExam: () => {
+        setCurrentExam(null);
+        setCurrentQuestions([]);
+        setAnswers({});
+      }
+    };
+  }, [answers, currentExam, currentQuestions, exams, isExamLoading, lastSubmission, loadExams, saveAnswer, startExam, submitExam]);
 
   return (
-    <ExamContext.Provider value={{ exams, currentExam, answers, startExam, saveAnswer, submitExam }}>
+    <ExamContext.Provider value={value}>
       {children}
     </ExamContext.Provider>
   );

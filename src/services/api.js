@@ -123,6 +123,19 @@ export async function listStudents() {
   return result.data;
 }
 
+export async function updateStudent(studentId, student) {
+  const result = await apiFetch(`/admin/students/${studentId}`, {
+    method: 'PUT',
+    body: JSON.stringify(student)
+  });
+  return result.data;
+}
+
+export async function deleteStudent(studentId) {
+  const result = await apiFetch(`/admin/students/${studentId}`, { method: 'DELETE' });
+  return result.data;
+}
+
 export async function createExam(exam) {
   const result = await apiFetch('/exams', {
     method: 'POST',
@@ -136,6 +149,19 @@ export async function listExams() {
   return result.data;
 }
 
+export async function updateExam(examId, exam) {
+  const result = await apiFetch(`/exams/${examId}`, {
+    method: 'PUT',
+    body: JSON.stringify(exam)
+  });
+  return result.data;
+}
+
+export async function deleteExam(examId) {
+  const result = await apiFetch(`/exams/${examId}`, { method: 'DELETE' });
+  return result.data;
+}
+
 export async function enrollStudents(examId, studentIds) {
   const result = await apiFetch(`/exams/${examId}/enroll`, {
     method: 'POST',
@@ -144,11 +170,37 @@ export async function enrollStudents(examId, studentIds) {
   return result.data;
 }
 
+export async function getExamStudents(examId) {
+  const result = await apiFetch(`/exams/${examId}/students`);
+  return result.data;
+}
+
 export async function createQuestion(question) {
   const result = await apiFetch('/questions', {
     method: 'POST',
     body: JSON.stringify(question)
   });
+  return result.data;
+}
+
+export async function listQuestions(params = {}) {
+  const query = new URLSearchParams();
+  if (params.examId) query.set('examId', params.examId);
+  const suffix = query.toString() ? `?${query.toString()}` : '';
+  const result = await apiFetch(`/questions${suffix}`);
+  return result.data;
+}
+
+export async function updateQuestion(questionId, question) {
+  const result = await apiFetch(`/questions/${questionId}`, {
+    method: 'PUT',
+    body: JSON.stringify(question)
+  });
+  return result.data;
+}
+
+export async function deleteQuestion(questionId) {
+  const result = await apiFetch(`/questions/${questionId}`, { method: 'DELETE' });
   return result.data;
 }
 

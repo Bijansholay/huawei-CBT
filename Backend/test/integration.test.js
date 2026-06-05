@@ -44,6 +44,42 @@ test("frontend integration API flow", async () => {
     });
     assert.equal(adminLogin.response.status, 200);
     const adminToken = adminLogin.json.data.token;
+    const superAdminId = adminLogin.json.data.user.id;
+    assert.equal(adminLogin.json.data.user.isSuperAdmin, true);
+
+    const adminCreate = await request(baseUrl, "POST", "/api/admin/admins", {
+      email: "manager@test.local",
+      surname: "Manager",
+      password: "manager-password"
+    }, adminToken);
+    assert.equal(adminCreate.response.status, 201);
+    const managerId = adminCreate.json.data.admin.id;
+    const managerLogin = await request(baseUrl, "POST", "/api/auth/login", {
+      email: "manager@test.local",
+      password: "manager-password"
+    });
+    assert.equal(managerLogin.response.status, 200);
+    const managerToken = managerLogin.json.data.token;
+    assert.equal(managerLogin.json.data.user.isSuperAdmin, false);
+
+    const adminsList = await request(baseUrl, "GET", "/api/admin/admins", null, adminToken);
+    assert.equal(adminsList.response.status, 200);
+    assert.equal(adminsList.json.data.admins.some((admin) => admin.isSuperAdmin), true);
+
+    const managerCreateDenied = await request(baseUrl, "POST", "/api/admin/admins", {
+      email: "blocked@test.local",
+      surname: "Blocked",
+      password: "blocked-password"
+    }, managerToken);
+    assert.equal(managerCreateDenied.response.status, 403);
+
+    const managerUpdateDenied = await request(baseUrl, "PUT", `/api/admin/admins/${managerId}`, {
+      surname: "Blocked Edit"
+    }, managerToken);
+    assert.equal(managerUpdateDenied.response.status, 403);
+
+    const deleteSuperAdmin = await request(baseUrl, "DELETE", `/api/admin/admins/${superAdminId}`, null, managerToken);
+    assert.equal(deleteSuperAdmin.response.status, 403);
 
     const studentCreate = await request(baseUrl, "POST", "/api/admin/students", {
       matricNumber: "CBT/001",
@@ -73,10 +109,32 @@ test("frontend integration API flow", async () => {
     assert.equal(questionCreate.response.status, 201);
     const questionId = questionCreate.json.data.question.id;
 
+    const questionUpdate = await request(baseUrl, "PUT", `/api/questions/${questionId}`, {
+      question: "What does CPU stand for in computing?"
+    }, adminToken);
+    assert.equal(questionUpdate.response.status, 200);
+    assert.equal(questionUpdate.json.data.question.question, "What does CPU stand for in computing?");
+
+    const tempQuestion = await request(baseUrl, "POST", "/api/questions", {
+      examId,
+      question: "Temporary question",
+      options: ["One", "Two"],
+      correctOption: "One"
+    }, adminToken);
+    assert.equal(tempQuestion.response.status, 201);
+    const tempQuestionId = tempQuestion.json.data.question.id;
+
+    const deleteQuestion = await request(baseUrl, "DELETE", `/api/questions/${tempQuestionId}`, null, adminToken);
+    assert.equal(deleteQuestion.response.status, 200);
+
     const enroll = await request(baseUrl, "POST", `/api/exams/${examId}/enroll`, {
       studentIds: [studentId]
     }, adminToken);
     assert.equal(enroll.response.status, 200);
+
+    const examStudents = await request(baseUrl, "GET", `/api/exams/${examId}/students`, null, adminToken);
+    assert.equal(examStudents.response.status, 200);
+    assert.equal(examStudents.json.data.students.length, 1);
 
     const studentLogin = await request(baseUrl, "POST", "/api/auth/login", {
       matricNumber: "CBT/001",

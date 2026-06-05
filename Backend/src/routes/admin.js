@@ -1,11 +1,37 @@
 const express = require("express");
 const store = require("../store");
+const config = require("../config");
 const { authenticate, requireRole } = require("../middleware/auth");
 const { hashPassword } = require("../utils/crypto");
 const { ok, created, fail, asyncHandler } = require("../utils/http");
 
 const router = express.Router();
 router.use(authenticate, requireRole("admin"));
+
+function getSuperAdminEmail() {
+  return config.adminEmail.trim().toLowerCase();
+}
+
+function isSuperAdmin(user) {
+  return Boolean(user && String(user.email || "").trim().toLowerCase() === getSuperAdminEmail());
+}
+
+function serializeAdmin(user) {
+  const safeUser = store.withoutSecrets(user);
+  if (!safeUser) return null;
+  return {
+    ...safeUser,
+    isSuperAdmin: isSuperAdmin(user)
+  };
+}
+
+function requireSuperAdmin(req, res) {
+  if (!isSuperAdmin(req.user)) {
+    fail(res, 403, "Only the super admin can manage admin accounts");
+    return false;
+  }
+  return true;
+}
 
 router.get("/students", (req, res) => {
   const students = store.collection("users")
@@ -17,11 +43,13 @@ router.get("/students", (req, res) => {
 router.get("/admins", (req, res) => {
   const admins = store.collection("users")
     .filter((user) => user.role === "admin")
-    .map(store.withoutSecrets);
+    .map(serializeAdmin);
   return ok(res, { admins });
 });
 
 router.post("/admins", asyncHandler(async (req, res) => {
+  if (!requireSuperAdmin(req, res)) return;
+
   const { email, password, surname, name } = req.body;
   const cleanEmail = String(email || "").trim().toLowerCase();
 
@@ -44,10 +72,12 @@ router.post("/admins", asyncHandler(async (req, res) => {
     role: "admin"
   });
 
-  return created(res, { admin: store.withoutSecrets(admin) }, "Admin created");
+  return created(res, { admin: serializeAdmin(admin) }, "Admin created");
 }));
 
 router.put("/admins/:id", asyncHandler(async (req, res) => {
+  if (!requireSuperAdmin(req, res)) return;
+
   const admin = store.collection("users").find((user) => user.id === req.params.id && user.role === "admin");
   if (!admin) return fail(res, 404, "Admin not found");
 
@@ -55,6 +85,9 @@ router.put("/admins/:id", asyncHandler(async (req, res) => {
   if (req.body.email !== undefined) {
     const cleanEmail = String(req.body.email || "").trim().toLowerCase();
     if (!cleanEmail) return fail(res, 400, "email cannot be empty");
+    if (isSuperAdmin(admin) && cleanEmail !== getSuperAdminEmail()) {
+      return fail(res, 400, "The super admin email cannot be changed");
+    }
 
     const exists = store.collection("users").some((user) => user.id !== admin.id && user.email === cleanEmail);
     if (exists) return fail(res, 409, "A user with this email already exists");
@@ -67,19 +100,21 @@ router.put("/admins/:id", asyncHandler(async (req, res) => {
   }
 
   const updated = await store.update("users", req.params.id, patch);
-  return ok(res, { admin: store.withoutSecrets(updated) }, "Admin updated");
+  return ok(res, { admin: serializeAdmin(updated) }, "Admin updated");
 }));
 
 router.delete("/admins/:id", asyncHandler(async (req, res) => {
-  if (req.params.id === req.user.id) {
-    return fail(res, 400, "You cannot delete your own admin account");
-  }
+  if (!requireSuperAdmin(req, res)) return;
 
   const admin = store.collection("users").find((user) => user.id === req.params.id && user.role === "admin");
   if (!admin) return fail(res, 404, "Admin not found");
 
-  const adminCount = store.collection("users").filter((user) => user.role === "admin").length;
-  if (adminCount <= 1) return fail(res, 400, "At least one admin account is required");
+  if (req.params.id === req.user.id) {
+    return fail(res, 400, "You cannot delete your own admin account");
+  }
+  if (isSuperAdmin(admin)) {
+    return fail(res, 403, "The super admin account cannot be deleted");
+  }
 
   await store.remove("users", req.params.id);
   return ok(res, null, "Admin deleted");

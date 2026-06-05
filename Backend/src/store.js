@@ -130,13 +130,19 @@ async function loadSupabase() {
 }
 
 async function seedAdmin() {
-  const existing = state.users.find((user) => user.role === "admin");
-  if (existing) return;
+  const superAdminEmail = config.adminEmail.trim().toLowerCase();
+  const existing = state.users.find((user) => String(user.email || "").trim().toLowerCase() === superAdminEmail);
+  if (existing) {
+    if (existing.role !== "admin") {
+      throw new Error(`ADMIN_EMAIL is already used by a non-admin account: ${config.adminEmail}`);
+    }
+    return;
+  }
 
   await insert("users", {
     matricNumber: null,
     surname: "Admin",
-    email: config.adminEmail.toLowerCase(),
+    email: superAdminEmail,
     passwordHash: hashPassword(config.adminPassword),
     role: "admin"
   });

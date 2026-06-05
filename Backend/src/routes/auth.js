@@ -1,5 +1,6 @@
 const express = require("express");
 const store = require("../store");
+const config = require("../config");
 const { authenticate } = require("../middleware/auth");
 const { signToken, hashPassword, verifyPassword } = require("../utils/crypto");
 const { ok, created, fail, asyncHandler } = require("../utils/http");
@@ -7,7 +8,10 @@ const { ok, created, fail, asyncHandler } = require("../utils/http");
 const router = express.Router();
 
 function issueAuth(res, user, message = "Login successful") {
-  const safeUser = store.withoutSecrets(user);
+  const safeUser = {
+    ...store.withoutSecrets(user),
+    isSuperAdmin: Boolean(user && user.role === "admin" && String(user.email || "").trim().toLowerCase() === config.adminEmail.trim().toLowerCase())
+  };
   const token = signToken({ sub: user.id, role: user.role });
   return ok(res, { user: safeUser, token }, message);
 }
@@ -69,7 +73,11 @@ router.post("/logout", authenticate, (req, res) => {
 });
 
 router.get("/me", authenticate, (req, res) => {
-  return ok(res, { user: store.withoutSecrets(req.user) });
+  const safeUser = {
+    ...store.withoutSecrets(req.user),
+    isSuperAdmin: Boolean(req.user && req.user.role === "admin" && String(req.user.email || "").trim().toLowerCase() === config.adminEmail.trim().toLowerCase())
+  };
+  return ok(res, { user: safeUser });
 });
 
 module.exports = router;

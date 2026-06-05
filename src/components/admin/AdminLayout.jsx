@@ -18,7 +18,7 @@ export default function AdminLayout() {
     { name: 'Question Bank', path: '/admin/questions', icon: Database },
     { name: 'Results', path: '/admin/results', icon: Award },
     { name: 'Admins', path: '/admin/admins', icon: UserCog },
-  ];
+  ].filter((item) => item.name !== 'Admins' || user?.isSuperAdmin);
 
   return (
     <div className="flex h-screen overflow-hidden">
