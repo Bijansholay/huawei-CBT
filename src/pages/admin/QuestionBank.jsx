@@ -62,6 +62,7 @@ export default function QuestionBank() {
 
   const totalTypes = typeCounts.single + typeCounts.multiple + typeCounts.trueFalse;
   const totalDiffs = counts.easy + counts.medium + counts.hard;
+  const sumsMatch = totalTypes === totalDiffs;
 
   const examMap = useMemo(() => {
     return new Map(exams.map((exam) => [exam.id, exam]));

@@ -36,6 +36,23 @@ function buildPrompt({ count, difficulty, typeCounts, difficultyCounts }) {
   ].join("\n");
 }
 
+function extractResponseText(response) {
+  if (typeof response?.output_text === "string" && response.output_text.trim()) {
+    return response.output_text.trim();
+  }
+
+  const textParts = [];
+  for (const item of response?.output || []) {
+    for (const content of item?.content || []) {
+      if (typeof content?.text === "string" && content.text.trim()) {
+        textParts.push(content.text.trim());
+      }
+    }
+  }
+
+  return textParts.join("\n").trim();
+}
+
 async function generateQuestionsFromPdf({ pdf, count, difficulty, typeCounts, difficultyCounts }) {
   if (!config.openaiApiKey) {
     throw new Error("OPENAI_API_KEY is not configured");
@@ -54,6 +71,7 @@ async function generateQuestionsFromPdf({ pdf, count, difficulty, typeCounts, di
     const total = Math.min(Math.max(Number(count || 5), 1), 50);
     const response = await client.responses.create({
       model: config.openaiModel,
+      max_output_tokens: Math.min(Math.max(total * 160, 1000), 8000),
       input: [
         {
           role: "user",
@@ -107,8 +125,28 @@ async function generateQuestionsFromPdf({ pdf, count, difficulty, typeCounts, di
       }
     });
 
-    const parsed = JSON.parse(response.output_text || "{}");
-    return (parsed.questions || []).map(normalizeQuestion);
+    if (response.status && response.status !== "completed") {
+      throw new Error(`AI generation did not complete successfully (status: ${response.status})`);
+    }
+
+    const rawText = extractResponseText(response);
+    if (!rawText) {
+      throw new Error("AI generation returned an empty response");
+    }
+
+    let parsed;
+    try {
+      parsed = JSON.parse(rawText);
+    } catch (err) {
+      throw new Error(`AI generation returned invalid JSON: ${err.message}`);
+    }
+
+    const questions = Array.isArray(parsed.questions) ? parsed.questions : [];
+    if (questions.length === 0) {
+      throw new Error("AI generation returned no questions");
+    }
+
+    return questions.map(normalizeQuestion);
   } finally {
     await client.files.delete(uploadedFile.id).catch(() => null);
   }
