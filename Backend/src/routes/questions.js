@@ -1,6 +1,7 @@
 const fs = require("fs");
 const multer = require("multer");
 const express = require("express");
+const config = require("../config");
 const store = require("../store");
 const { authenticate, requireRole } = require("../middleware/auth");
 const { ok, created, fail, asyncHandler } = require("../utils/http");
@@ -107,7 +108,10 @@ router.post("/generate", upload.single("pdf"), asyncHandler(async (req, res) => 
       error: err.message,
       stack: err.stack
     });
-    return fail(res, 500, `AI generation failed. Reference: ${req.id}`);
+    const message = config.isProduction
+      ? `AI generation failed. Reference: ${req.id}`
+      : `AI generation failed: ${err.message}`;
+    return fail(res, 500, message);
   } finally {
     if (req.file?.path) {
       fs.unlink(req.file.path, () => {});
