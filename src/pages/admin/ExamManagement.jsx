@@ -18,6 +18,7 @@ export default function ExamManagement() {
   const [exams, setExams] = useState([]);
   const [students, setStudents] = useState([]);
   const [selectedStudentIds, setSelectedStudentIds] = useState([]);
+  const [studentTrackFilter, setStudentTrackFilter] = useState('all');
   const [currentExam, setCurrentExam] = useState(null);
   const [enrolledStudents, setEnrolledStudents] = useState([]);
   const [showGenerateModal, setShowGenerateModal] = useState(false);
@@ -60,6 +61,10 @@ export default function ExamManagement() {
 
   const totalGenerationTypes = generationTypeCounts.single + generationTypeCounts.multiple + generationTypeCounts.trueFalse;
   const totalGenerationDiffs = generationCounts.easy + generationCounts.medium + generationCounts.hard;
+  const studentTracks = Array.from(new Set(students.map((student) => (student.track || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+  const visibleStudents = studentTrackFilter === 'all'
+    ? students
+    : students.filter((student) => String(student.track || '').trim() === studentTrackFilter);
 
   const resetForm = () => {
     setEditingExamId('');
@@ -107,6 +112,7 @@ export default function ExamManagement() {
       setStudents(allStudents);
       setEnrolledStudents(enrolled);
       setSelectedStudentIds(enrolled.map((student) => student.id));
+      setStudentTrackFilter('all');
       setCurrentExam(exam);
       setShowEnrollModal(true);
     } catch (err) {
@@ -160,6 +166,7 @@ export default function ExamManagement() {
       setShowEnrollModal(false);
       setCurrentExam(null);
       setSelectedStudentIds([]);
+      setStudentTrackFilter('all');
       setEnrolledStudents([]);
       await loadExams();
     } catch (err) {
@@ -437,11 +444,53 @@ export default function ExamManagement() {
                   Select the students who should take this exam. Currently enrolled: {enrolledStudents.length}
                 </div>
 
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
+                  <div className="flex-1">
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1 ml-1">Filter by track</label>
+                    <select
+                      value={studentTrackFilter}
+                      onChange={(event) => setStudentTrackFilter(event.target.value)}
+                      className="w-full px-4 py-2.5 bg-gray-50 border-none rounded-2xl text-sm focus:ring-2 focus:ring-brand-200 outline-none text-gray-900"
+                    >
+                      <option value="all">All tracks</option>
+                      {studentTracks.map((track) => (
+                        <option key={track} value={track}>{track}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="sm:self-end">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const nextIds = Array.from(new Set([
+                          ...selectedStudentIds,
+                          ...visibleStudents.map((student) => student.id)
+                        ]));
+                        setSelectedStudentIds(nextIds);
+                      }}
+                      className="px-4 py-2.5 rounded-2xl text-sm font-semibold bg-gray-900 text-white hover:bg-black"
+                    >
+                      Select Filtered
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between mb-3 text-xs text-gray-500">
+                  <span>{visibleStudents.length} student{visibleStudents.length === 1 ? '' : 's'} shown</span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedStudentIds((prev) => prev.filter((id) => !visibleStudents.some((student) => student.id === id)))}
+                    className="font-semibold text-gray-700 hover:text-gray-900"
+                  >
+                    Clear filtered selections
+                  </button>
+                </div>
+
                 <div className="max-h-[50vh] overflow-y-auto space-y-2 pr-1">
-                  {students.length === 0 ? (
+                  {visibleStudents.length === 0 ? (
                     <div className="text-sm text-gray-500">No students available.</div>
                   ) : (
-                    students.map((student) => {
+                    visibleStudents.map((student) => {
                       const checked = selectedStudentIds.includes(student.id);
                       return (
                         <label
@@ -450,7 +499,11 @@ export default function ExamManagement() {
                         >
                           <div>
                             <div className="text-sm font-semibold text-gray-900">{student.surname || 'Student'}</div>
-                            <div className="text-xs text-gray-500">{student.matricNumber || 'No matric'}{student.email ? ` · ${student.email}` : ''}</div>
+                            <div className="text-xs text-gray-500">
+                              {student.matricNumber || 'No matric'}
+                              {student.track ? ` · ${student.track}` : ' · Unassigned'}
+                              {student.email ? ` · ${student.email}` : ''}
+                            </div>
                           </div>
                           <input
                             type="checkbox"

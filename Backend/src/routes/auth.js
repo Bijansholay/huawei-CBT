@@ -17,7 +17,7 @@ function issueAuth(res, user, message = "Login successful") {
 }
 
 router.post("/register", asyncHandler(async (req, res) => {
-  const { matricNumber, matric_number, surname, email, password } = req.body;
+  const { matricNumber, matric_number, surname, email, password, track, trackName, track_name } = req.body;
   const matric = String(matricNumber || matric_number || "").trim();
   const cleanSurname = String(surname || "").trim();
 
@@ -34,6 +34,7 @@ router.post("/register", asyncHandler(async (req, res) => {
     matricNumber: matric,
     matric_number: matric,
     surname: cleanSurname,
+    track: String(track || trackName || track_name || "").trim() || null,
     email: email ? String(email).toLowerCase() : null,
     passwordHash: password ? hashPassword(password) : null,
     role: "student"

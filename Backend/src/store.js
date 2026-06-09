@@ -41,6 +41,7 @@ function camelizeRecord(record) {
   return {
     ...record,
     matricNumber: record.matric_number ?? record.matricNumber,
+    track: record.track ?? record.track_name ?? record.trackName,
     passwordHash: record.password_hash ?? record.passwordHash,
     createdAt: record.created_at ?? record.createdAt,
     updatedAt: record.updated_at ?? record.updatedAt,
@@ -70,6 +71,7 @@ function toDbRecord(name, record) {
 
   const mappings = {
     matricNumber: "matric_number",
+    track: "track",
     passwordHash: "password_hash",
     createdAt: "created_at",
     updatedAt: "updated_at",

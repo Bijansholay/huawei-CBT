@@ -83,10 +83,12 @@ test("frontend integration API flow", async () => {
 
     const studentCreate = await request(baseUrl, "POST", "/api/admin/students", {
       matricNumber: "CBT/001",
-      surname: "Adeleke"
+      surname: "Adeleke",
+      track: "ND 2A"
     }, adminToken);
     assert.equal(studentCreate.response.status, 201);
     const studentId = studentCreate.json.data.student.id;
+    assert.equal(studentCreate.json.data.student.track, "ND 2A");
 
     const examCreate = await request(baseUrl, "POST", "/api/exams", {
       title: "Computer Basics",
@@ -135,6 +137,7 @@ test("frontend integration API flow", async () => {
     const examStudents = await request(baseUrl, "GET", `/api/exams/${examId}/students`, null, adminToken);
     assert.equal(examStudents.response.status, 200);
     assert.equal(examStudents.json.data.students.length, 1);
+    assert.equal(examStudents.json.data.students[0].track, "ND 2A");
 
     const studentLogin = await request(baseUrl, "POST", "/api/auth/login", {
       matricNumber: "CBT/001",

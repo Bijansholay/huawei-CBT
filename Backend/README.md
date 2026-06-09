@@ -152,6 +152,8 @@ Student login:
 }
 ```
 
+When creating or editing a student, you can also set `track` to group them by class or programme for easier exam enrollment.
+
 Admin login:
 
 ```json

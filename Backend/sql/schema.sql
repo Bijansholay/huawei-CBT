@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   matric_number VARCHAR(50) UNIQUE,
   surname VARCHAR(100),
+  track VARCHAR(100),
   email VARCHAR(255) UNIQUE,
   password_hash VARCHAR(255),
   role VARCHAR(20) NOT NULL CHECK (role IN ('student', 'admin')),

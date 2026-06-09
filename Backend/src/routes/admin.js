@@ -121,7 +121,7 @@ router.delete("/admins/:id", asyncHandler(async (req, res) => {
 }));
 
 router.post("/students", asyncHandler(async (req, res) => {
-  const { matricNumber, matric_number, surname, email, password } = req.body;
+  const { matricNumber, matric_number, surname, email, password, track, trackName, track_name } = req.body;
   const matric = String(matricNumber || matric_number || "").trim();
   if (!matric || !surname) return fail(res, 400, "matricNumber and surname are required");
 
@@ -132,6 +132,7 @@ router.post("/students", asyncHandler(async (req, res) => {
     matricNumber: matric,
     matric_number: matric,
     surname: String(surname).trim(),
+    track: String(track || trackName || track_name || "").trim() || null,
     passwordHash: hashPassword(password || `${matric}-${store.uuid()}`),
     role: "student"
   };
@@ -155,6 +156,10 @@ router.put("/students/:id", asyncHandler(async (req, res) => {
     patch.matric_number = patch.matricNumber;
   }
   if (req.body.surname) patch.surname = String(req.body.surname).trim();
+  if (req.body.track !== undefined || req.body.trackName !== undefined || req.body.track_name !== undefined) {
+    const nextTrack = String(req.body.track ?? req.body.trackName ?? req.body.track_name ?? "").trim();
+    patch.track = nextTrack || null;
+  }
   if (req.body.email !== undefined) patch.email = req.body.email ? String(req.body.email).toLowerCase() : null;
   if (req.body.password) patch.passwordHash = hashPassword(req.body.password);
 

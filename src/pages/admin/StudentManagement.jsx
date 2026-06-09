@@ -7,7 +7,7 @@ export default function StudentManagement() {
   const [showModal, setShowModal] = useState(false);
   const [students, setStudents] = useState([]);
   const [editingStudentId, setEditingStudentId] = useState('');
-  const [form, setForm] = useState({ matricNumber: '', surname: '', email: '', password: '' });
+  const [form, setForm] = useState({ matricNumber: '', surname: '', track: '', email: '', password: '' });
   const [search, setSearch] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -32,19 +32,19 @@ export default function StudentManagement() {
   }, []);
 
   const filteredStudents = students.filter((student) => {
-    const text = `${student.matricNumber || ''} ${student.surname || ''} ${student.email || ''}`.toLowerCase();
+    const text = `${student.matricNumber || ''} ${student.surname || ''} ${student.track || ''} ${student.email || ''}`.toLowerCase();
     return text.includes(search.toLowerCase());
   });
 
   const resetForm = () => {
     setEditingStudentId('');
-    setForm({ matricNumber: '', surname: '', email: '', password: '' });
+    setForm({ matricNumber: '', surname: '', track: '', email: '', password: '' });
     setShowModal(false);
   };
 
   const startCreate = () => {
     setEditingStudentId('');
-    setForm({ matricNumber: '', surname: '', email: '', password: '' });
+    setForm({ matricNumber: '', surname: '', track: '', email: '', password: '' });
     setShowModal(true);
   };
 
@@ -53,6 +53,7 @@ export default function StudentManagement() {
     setForm({
       matricNumber: student.matricNumber || '',
       surname: student.surname || '',
+      track: student.track || '',
       email: student.email || '',
       password: ''
     });
@@ -69,7 +70,8 @@ export default function StudentManagement() {
       if (editingStudentId) {
         const payload = {
           matricNumber: form.matricNumber.trim(),
-          surname: form.surname.trim()
+          surname: form.surname.trim(),
+          track: form.track.trim()
         };
         if (form.email.trim()) payload.email = form.email.trim();
         if (form.password.trim()) payload.password = form.password;
@@ -78,7 +80,8 @@ export default function StudentManagement() {
       } else {
         const payload = {
           matricNumber: form.matricNumber.trim(),
-          surname: form.surname.trim()
+          surname: form.surname.trim(),
+          track: form.track.trim()
         };
         if (form.email.trim()) payload.email = form.email.trim();
         if (form.password.trim()) payload.password = form.password;
@@ -156,6 +159,7 @@ export default function StudentManagement() {
                 <tr>
                   <th className="px-6 py-4">Matric</th>
                   <th className="px-6 py-4">Name</th>
+                  <th className="px-6 py-4">Track</th>
                   <th className="px-6 py-4">Email</th>
                   <th className="px-6 py-4 text-right">Actions</th>
                 </tr>
@@ -165,6 +169,7 @@ export default function StudentManagement() {
                   <tr key={student.id} className="hover:bg-gray-50/50 transition-colors">
                     <td className="px-6 py-3 font-mono text-xs font-medium text-gray-900">{student.matricNumber || '-'}</td>
                     <td className="px-6 py-3 font-medium text-gray-900">{student.surname || 'Student'}</td>
+                    <td className="px-6 py-3 text-gray-500">{student.track || 'Unassigned'}</td>
                     <td className="px-6 py-3 text-gray-500">{student.email || 'No email'}</td>
                     <td className="px-6 py-3 text-right">
                       <div className="flex justify-end gap-2">
@@ -227,6 +232,16 @@ export default function StudentManagement() {
                       value={form.surname}
                       onChange={(event) => setForm({ ...form, surname: event.target.value })}
                       className="w-full px-4 py-2.5 bg-gray-50 border-none rounded-2xl text-sm focus:ring-2 focus:ring-brand-200 outline-none text-gray-900"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 uppercase mb-1.5 ml-1">Class / Track</label>
+                    <input
+                      type="text"
+                      value={form.track}
+                      onChange={(event) => setForm({ ...form, track: event.target.value })}
+                      className="w-full px-4 py-2.5 bg-gray-50 border-none rounded-2xl text-sm focus:ring-2 focus:ring-brand-200 outline-none text-gray-900"
+                      placeholder="e.g. ND 2A, Computer Science, Track 1"
                     />
                   </div>
                   <div>
