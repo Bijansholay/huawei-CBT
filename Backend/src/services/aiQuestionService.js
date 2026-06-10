@@ -2,6 +2,37 @@ const fs = require("fs");
 const OpenAI = require("openai");
 const config = require("../config");
 
+function isNetworkRestrictionError(err) {
+  const message = String(err?.message || "").toLowerCase();
+  const code = String(err?.code || "").toUpperCase();
+
+  return [
+    "ENOTFOUND",
+    "EAI_AGAIN",
+    "ECONNRESET",
+    "ECONNREFUSED",
+    "ETIMEDOUT",
+    "EHOSTUNREACH",
+    "ENETUNREACH",
+    "UND_ERR_CONNECT_TIMEOUT"
+  ].includes(code)
+    || message.includes("fetch failed")
+    || message.includes("network")
+    || message.includes("timeout")
+    || message.includes("socket hang up")
+    || message.includes("connect");
+}
+
+function formatAIGenerationError(err) {
+  if (isNetworkRestrictionError(err)) {
+    const wrapped = new Error("AI generation failed because the server cannot reach OpenAI. Check network/sandbox access and try again.");
+    wrapped.code = "AI_NETWORK_RESTRICTION";
+    return wrapped;
+  }
+
+  return err;
+}
+
 function normalizeQuestion(raw, index) {
   const labels = ["A", "B", "C", "D"];
   const options = Array.isArray(raw.options)
@@ -152,4 +183,9 @@ async function generateQuestionsFromPdf({ pdf, count, difficulty, typeCounts, di
   }
 }
 
-module.exports = { generateQuestionsFromPdf, normalizeQuestion };
+module.exports = {
+  generateQuestionsFromPdf,
+  normalizeQuestion,
+  isNetworkRestrictionError,
+  formatAIGenerationError
+};

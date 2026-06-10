@@ -5,7 +5,7 @@ const config = require("../config");
 const store = require("../store");
 const { authenticate, requireRole } = require("../middleware/auth");
 const { ok, created, fail, asyncHandler } = require("../utils/http");
-const { generateQuestionsFromPdf } = require("../services/aiQuestionService");
+const { generateQuestionsFromPdf, formatAIGenerationError } = require("../services/aiQuestionService");
 
 const upload = multer({ dest: "uploads/" });
 const router = express.Router();
@@ -99,18 +99,23 @@ router.post("/generate", upload.single("pdf"), asyncHandler(async (req, res) => 
 
     return created(res, { questions: await Promise.all(questions) }, "Questions generated and saved");
   } catch (err) {
+    const formattedError = formatAIGenerationError(err);
     console.error({
       requestId: req.id,
       method: req.method,
       path: req.originalUrl,
       examId: resolvedExamId,
       pdfId: resolvedPdfId,
-      error: err.message,
-      stack: err.stack
+      error: formattedError.message,
+      stack: formattedError.stack
     });
+    if (formattedError.code === "AI_NETWORK_RESTRICTION") {
+      return fail(res, 503, `${formattedError.message} Reference: ${req.id}`);
+    }
+
     const message = config.isProduction
       ? `AI generation failed. Reference: ${req.id}`
-      : `AI generation failed: ${err.message}`;
+      : `AI generation failed: ${formattedError.message}`;
     return fail(res, 500, message);
   } finally {
     if (req.file?.path) {

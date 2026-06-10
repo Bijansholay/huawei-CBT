@@ -12,7 +12,7 @@ export default function Navbar() {
         <div className="w-10 h-10 rounded-full bg-pastel-purple flex items-center justify-center">
           <span className="text-brand-600 font-bold text-lg">T</span>
         </div>
-        <span className="text-lg font-semibold text-gray-900 tracking-tight hidden sm:block">TCS CBT</span>
+        <span className="text-lg font-semibold text-gray-900 tracking-tight hidden sm:block">Huawei CBT</span>
       </div>
       
       <div className="flex items-center gap-3">

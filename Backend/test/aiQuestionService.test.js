@@ -62,7 +62,11 @@ const servicePath = require.resolve("../src/services/aiQuestionService");
 delete require.cache[configPath];
 delete require.cache[servicePath];
 
-const { generateQuestionsFromPdf } = require("../src/services/aiQuestionService");
+const {
+  generateQuestionsFromPdf,
+  isNetworkRestrictionError,
+  formatAIGenerationError
+} = require("../src/services/aiQuestionService");
 
 test("generateQuestionsFromPdf uploads a pdf and returns normalized questions", async () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "huawei-cbt-ai-"));
@@ -97,4 +101,14 @@ test("generateQuestionsFromPdf uploads a pdf and returns normalized questions", 
     delete require.cache[configPath];
     delete require.cache[servicePath];
   }
+});
+
+test("formatAIGenerationError reports network restrictions clearly", () => {
+  assert.equal(isNetworkRestrictionError({ code: "ENOTFOUND", message: "getaddrinfo ENOTFOUND api.openai.com" }), true);
+  assert.equal(isNetworkRestrictionError({ message: "fetch failed" }), true);
+  assert.equal(isNetworkRestrictionError({ code: "EACCES", message: "permission denied" }), false);
+
+  const formatted = formatAIGenerationError({ code: "ENOTFOUND", message: "getaddrinfo ENOTFOUND api.openai.com" });
+  assert.equal(formatted.code, "AI_NETWORK_RESTRICTION");
+  assert.match(formatted.message, /cannot reach OpenAI/i);
 });

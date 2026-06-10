@@ -107,7 +107,18 @@ function toDbRecord(name, record) {
 function loadFile() {
   const file = path.resolve(config.dataFile);
   if (fs.existsSync(file)) {
-    state = JSON.parse(fs.readFileSync(file, "utf8"));
+    const loaded = JSON.parse(fs.readFileSync(file, "utf8"));
+    state = {
+      ...initialState(),
+      ...loaded,
+      users: (loaded.users || []).map(camelizeRecord),
+      exams: (loaded.exams || []).map(camelizeRecord),
+      examEnrollments: (loaded.examEnrollments || []).map(camelizeRecord),
+      examSessions: (loaded.examSessions || []).map(camelizeRecord),
+      pdfs: (loaded.pdfs || []).map(camelizeRecord),
+      questions: (loaded.questions || []).map(camelizeRecord),
+      examAnswers: (loaded.examAnswers || []).map(camelizeRecord)
+    };
   }
 }
 
