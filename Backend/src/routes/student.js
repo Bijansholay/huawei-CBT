@@ -1,7 +1,7 @@
 const express = require("express");
 const store = require("../store");
 const { authenticate, requireRole } = require("../middleware/auth");
-const { ok, fail, asyncHandler } = require("../utils/http");
+const { ok, created, fail, asyncHandler } = require("../utils/http");
 
 const router = express.Router();
 router.use(authenticate, requireRole("student"));
@@ -111,6 +111,51 @@ router.post("/exams/:id/start", asyncHandler(async (req, res) => {
   }
 
   return ok(res, { session }, "Exam started");
+}));
+
+router.post("/exams/:examId/violations", asyncHandler(async (req, res) => {
+  const exam = getEnrolledExam(req.params.examId, req.user.id);
+  if (!exam) return fail(res, 404, "Exam not found or not enrolled");
+
+  const {
+    eventType,
+    strikeCount,
+    occurredAt,
+    highResolutionTimestamp,
+    fullscreenActive,
+    visibilityState
+  } = req.body || {};
+
+  if (!eventType || !strikeCount || !occurredAt) {
+    return fail(res, 400, "eventType, strikeCount, and occurredAt are required");
+  }
+
+  const session = store.collection("examSessions").find((item) => {
+    return item.examId === exam.id && item.studentId === req.user.id && item.status === "active";
+  });
+
+  const violation = await store.insert("examViolations", {
+    examId: exam.id,
+    exam_id: exam.id,
+    studentId: req.user.id,
+    student_id: req.user.id,
+    sessionId: session?.id || null,
+    session_id: session?.id || null,
+    eventType: String(eventType),
+    event_type: String(eventType),
+    strikeCount: Number(strikeCount),
+    strike_count: Number(strikeCount),
+    occurredAt: String(occurredAt),
+    occurred_at: String(occurredAt),
+    highResolutionTimestamp: Number(highResolutionTimestamp) || null,
+    high_resolution_timestamp: Number(highResolutionTimestamp) || null,
+    fullscreenActive: Boolean(fullscreenActive),
+    fullscreen_active: Boolean(fullscreenActive),
+    visibilityState: visibilityState ? String(visibilityState) : null,
+    visibility_state: visibilityState ? String(visibilityState) : null
+  });
+
+  return created(res, { violation }, "Violation logged");
 }));
 
 function getEnrolledExam(examId, studentId) {

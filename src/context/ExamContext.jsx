@@ -78,6 +78,7 @@ export const ExamProvider = ({ children }) => {
       startExam,
       saveAnswer,
       submitExam,
+      submitExamNow: submitExam,
       clearCurrentExam: () => {
         setCurrentExam(null);
         setCurrentQuestions([]);

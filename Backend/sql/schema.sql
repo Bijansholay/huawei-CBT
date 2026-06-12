@@ -83,7 +83,22 @@ CREATE TABLE IF NOT EXISTS exam_answers (
   updated_at TIMESTAMP DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS exam_violations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  exam_id UUID NOT NULL REFERENCES exams(id) ON DELETE CASCADE,
+  student_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  session_id UUID REFERENCES exam_sessions(id) ON DELETE SET NULL,
+  event_type VARCHAR(50) NOT NULL,
+  strike_count INTEGER NOT NULL,
+  occurred_at TIMESTAMP NOT NULL,
+  fullscreen_active BOOLEAN DEFAULT FALSE,
+  visibility_state VARCHAR(50),
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
 CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
 CREATE INDEX IF NOT EXISTS idx_exams_status ON exams(status);
 CREATE INDEX IF NOT EXISTS idx_exam_enrollments_student ON exam_enrollments(student_id);
 CREATE INDEX IF NOT EXISTS idx_exam_sessions_student_exam ON exam_sessions(student_id, exam_id);
+CREATE INDEX IF NOT EXISTS idx_exam_violations_exam_student ON exam_violations(exam_id, student_id);

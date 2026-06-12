@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useExam } from '../../context/ExamContext';
 import { Clock, Flag, ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { logExamViolation } from '../../services/api';
 
 function normalizeOptions(options) {
   if (Array.isArray(options)) {
@@ -35,32 +36,26 @@ export default function ExamPage() {
     saveAnswer,
     answers,
     submitExam,
+    submitExamNow,
     isExamLoading
   } = useExam();
 
+  const examShellRef = useRef(null);
+  const violationCooldownRef = useRef(0);
+  const violationCountRef = useRef(0);
+  const violationTimerRef = useRef(null);
+  const violationBannerTimerRef = useRef(null);
+  const processingViolationRef = useRef(false);
+  const submitInProgressRef = useRef(false);
+  const [violationCount, setViolationCount] = useState(0);
+  const [violationModal, setViolationModal] = useState({ open: false, message: '' });
+  const [fullscreenPrompt, setFullscreenPrompt] = useState(false);
   const [currentQIndex, setCurrentQIndex] = useState(0);
   const [timeLeft, setTimeLeft] = useState(0);
   const [flags, setFlags] = useState(new Set());
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  useEffect(() => {
-    let active = true;
-    startExam(id)
-      .then((data) => {
-        if (!active) return;
-        const minutes = Number(data?.exam?.durationMinutes || data?.exam?.duration_minutes || 0);
-        setTimeLeft(minutes > 0 ? minutes * 60 : 0);
-      })
-      .catch((err) => {
-        if (active) setError(err.message || 'Failed to load exam');
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [id, startExam]);
 
   const currentQ = currentQuestions[currentQIndex];
   const currentOptions = useMemo(() => normalizeOptions(currentQ?.options), [currentQ]);
@@ -71,6 +66,200 @@ export default function ExamPage() {
     const s = seconds % 60;
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
+
+  const getFullscreenElement = () => {
+    return document.fullscreenElement
+      || document.webkitFullscreenElement
+      || document.msFullscreenElement
+      || null;
+  };
+
+  const requestFullscreenMode = useCallback(async () => {
+    const target = examShellRef.current || document.documentElement;
+    const request = target.requestFullscreen
+      || target.webkitRequestFullscreen
+      || target.msRequestFullscreen;
+
+    if (!request) {
+      setFullscreenPrompt(true);
+      return false;
+    }
+
+    try {
+      await Promise.resolve(request.call(target));
+      setFullscreenPrompt(false);
+      return true;
+    } catch {
+      setFullscreenPrompt(true);
+      return false;
+    }
+  }, []);
+
+  const sendViolationTelemetry = useCallback(async (payload) => {
+    try {
+      await logExamViolation(id, payload);
+    } catch (err) {
+      console.error('Failed to log exam violation', err);
+    }
+  }, [id]);
+
+  const queueViolationTelemetry = useCallback((payload, immediate = false) => {
+    if (violationTimerRef.current) {
+      clearTimeout(violationTimerRef.current);
+      violationTimerRef.current = null;
+    }
+
+    if (immediate) {
+      void sendViolationTelemetry(payload);
+      return;
+    }
+
+    violationTimerRef.current = window.setTimeout(() => {
+      violationTimerRef.current = null;
+      void sendViolationTelemetry(payload);
+    }, 120);
+  }, [sendViolationTelemetry]);
+
+  const handleFinalSubmit = useCallback(async () => {
+    if (submitInProgressRef.current) return;
+    submitInProgressRef.current = true;
+    setIsSubmitting(true);
+    setError('');
+    try {
+      await Promise.resolve((submitExamNow || submitExam)(id));
+      navigate(`/student/result/${id}`);
+    } catch (err) {
+      setError(err.message || 'Failed to submit exam');
+      setShowSubmitModal(false);
+    } finally {
+      submitInProgressRef.current = false;
+      setIsSubmitting(false);
+    }
+  }, [id, navigate, submitExam, submitExamNow]);
+
+  const handleViolation = useCallback(async (eventType) => {
+    if (!currentExam || processingViolationRef.current) return;
+
+    const now = Date.now();
+    if (now - violationCooldownRef.current < 800) {
+      return;
+    }
+
+    processingViolationRef.current = true;
+    violationCooldownRef.current = now;
+
+    try {
+      const nextStrike = Math.min(3, violationCountRef.current + 1);
+      violationCountRef.current = nextStrike;
+      setViolationCount(nextStrike);
+
+      const payload = {
+        eventType,
+        strikeCount: nextStrike,
+        occurredAt: new Date(now).toISOString(),
+        highResolutionTimestamp: typeof performance !== 'undefined' ? performance.now() : null,
+        fullscreenActive: Boolean(getFullscreenElement()),
+        visibilityState: document.visibilityState
+      };
+
+      queueViolationTelemetry(payload, nextStrike >= 3);
+
+      if (nextStrike >= 3) {
+        setViolationModal({
+          open: true,
+          message: 'Third violation detected. Your session is being submitted immediately.'
+        });
+        await handleFinalSubmit();
+        return;
+      }
+
+      setViolationModal({
+        open: true,
+        message: `Violation ${nextStrike} of 3 detected. Fullscreen has been restored.`
+      });
+      if (violationBannerTimerRef.current) {
+        clearTimeout(violationBannerTimerRef.current);
+      }
+      violationBannerTimerRef.current = window.setTimeout(() => {
+        setViolationModal({ open: false, message: '' });
+        violationBannerTimerRef.current = null;
+      }, 2500);
+      await requestFullscreenMode();
+    } catch (err) {
+      setError(err.message || 'Failed to handle exam violation');
+    } finally {
+      processingViolationRef.current = false;
+    }
+  }, [currentExam, handleFinalSubmit, queueViolationTelemetry, requestFullscreenMode]);
+
+  useEffect(() => {
+    let active = true;
+    startExam(id)
+      .then((data) => {
+        if (!active) return;
+        const minutes = Number(data?.exam?.durationMinutes || data?.exam?.duration_minutes || 0);
+        violationCountRef.current = 0;
+        setViolationCount(0);
+        setViolationModal({ open: false, message: '' });
+        setTimeLeft(minutes > 0 ? minutes * 60 : 0);
+        setFullscreenPrompt(true);
+        void requestFullscreenMode();
+      })
+      .catch((err) => {
+        if (active) setError(err.message || 'Failed to load exam');
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [id, requestFullscreenMode, startExam]);
+
+  useEffect(() => {
+    if (!currentExam) return undefined;
+
+    const handleVisibilityChange = (event) => {
+      event?.preventDefault?.();
+      if (document.hidden) {
+        void handleViolation('visibilitychange');
+      }
+    };
+
+    const handleWindowBlur = (event) => {
+      event?.preventDefault?.();
+      if (!document.hidden) {
+        void handleViolation('blur');
+      }
+    };
+
+    const handleFullscreenChange = (event) => {
+      event?.preventDefault?.();
+      if (!getFullscreenElement()) {
+        void handleViolation('fullscreenchange');
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('blur', handleWindowBlur);
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('blur', handleWindowBlur);
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
+      if (violationTimerRef.current) {
+        clearTimeout(violationTimerRef.current);
+        violationTimerRef.current = null;
+      }
+      if (violationBannerTimerRef.current) {
+        clearTimeout(violationBannerTimerRef.current);
+        violationBannerTimerRef.current = null;
+      }
+    };
+  }, [currentExam, handleViolation]);
 
   const handleAnswerChange = (val) => {
     if (!currentQ) return;
@@ -84,21 +273,6 @@ export default function ExamPage() {
     else newFlags.add(currentQ.id);
     setFlags(newFlags);
   };
-
-  const handleFinalSubmit = useCallback(async () => {
-    if (isSubmitting) return;
-    setIsSubmitting(true);
-    setError('');
-    try {
-      await submitExam(id);
-      navigate(`/student/result/${id}`);
-    } catch (err) {
-      setError(err.message || 'Failed to submit exam');
-      setShowSubmitModal(false);
-    } finally {
-      setIsSubmitting(false);
-    }
-  }, [id, isSubmitting, navigate, submitExam]);
 
   useEffect(() => {
     if (!timeLeft) return undefined;
@@ -154,6 +328,12 @@ export default function ExamPage() {
         }`}>
           <Clock size={14} />
           {formatTime(timeLeft)}
+        </div>
+
+        <div className="hidden sm:flex items-center gap-2">
+          <span className="px-3 py-1.5 rounded-full bg-amber-50 text-amber-700 text-[11px] font-bold uppercase tracking-wider border border-amber-100">
+            Strikes {violationCount}/3
+          </span>
         </div>
       </header>
 
@@ -293,6 +473,50 @@ export default function ExamPage() {
       </div>
 
       <AnimatePresence>
+        {fullscreenPrompt && currentExam && (
+          <div className="fixed inset-0 z-50 bg-gray-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+            <motion.div
+              initial={{ scale: 0.96, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.96, opacity: 0 }}
+              className="bg-white rounded-[2rem] shadow-xl w-full max-w-md p-6"
+            >
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Fullscreen required</h3>
+              <p className="text-sm text-gray-500 mb-5">
+                Enter fullscreen to continue the exam. If you leave fullscreen, it will be treated as a violation.
+              </p>
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={requestFullscreenMode}
+                  className="pill-button bg-gray-900 text-white"
+                >
+                  Enter fullscreen
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        {violationModal.open && (
+          <div className="fixed inset-0 z-50 pointer-events-none flex items-start justify-center p-4">
+            <motion.div
+              initial={{ y: -16, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: -16, opacity: 0 }}
+              className="mt-4 pointer-events-auto bg-gray-900 text-white rounded-2xl shadow-xl px-5 py-4 max-w-md w-full border border-gray-800"
+            >
+              <div className="text-xs font-bold uppercase tracking-wider text-amber-300 mb-1">
+                Anti-malpractice warning
+              </div>
+              <div className="text-sm text-gray-100">{violationModal.message}</div>
+              <div className="mt-2 text-[11px] text-gray-400">
+                Strike {violationCount}/3
+              </div>
+            </motion.div>
+          </div>
+        )}
+
         {showSubmitModal && (
           <div className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <motion.div

@@ -296,6 +296,29 @@ export async function submitExam(examId, answersByQuestionId) {
   return result.data;
 }
 
+export async function logExamViolation(examId, payload) {
+  const token = getToken();
+  const response = await fetch(`${API_URL}/student/exams/${examId}/violations`, {
+    method: 'POST',
+    keepalive: true,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
+    },
+    body: JSON.stringify(payload)
+  });
+
+  const result = await response.json().catch(() => null);
+  if (!response.ok || result?.success === false) {
+    const error = new Error(result?.message || `Request failed with ${response.status}`);
+    error.status = response.status;
+    error.payload = result;
+    throw error;
+  }
+
+  return result.data;
+}
+
 export async function getExamResults(examId) {
   const result = await apiFetch(`/exams/${examId}/results`);
   return result.data;

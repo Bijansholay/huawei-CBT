@@ -149,6 +149,17 @@ test("frontend integration API flow", async () => {
     const start = await request(baseUrl, "POST", `/api/student/exams/${examId}/start`, null, studentToken);
     assert.equal(start.response.status, 200);
 
+    const violation = await request(baseUrl, "POST", `/api/student/exams/${examId}/violations`, {
+      eventType: "blur",
+      strikeCount: 1,
+      occurredAt: new Date().toISOString(),
+      highResolutionTimestamp: 1234.56,
+      fullscreenActive: false,
+      visibilityState: "visible"
+    }, studentToken);
+    assert.equal(violation.response.status, 201);
+    assert.equal(violation.json.data.violation.strikeCount, 1);
+
     const submit = await request(baseUrl, "POST", `/api/exams/${examId}/submit`, {
       answers: [{ questionId, selectedOption: "A" }]
     }, studentToken);

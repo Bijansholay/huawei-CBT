@@ -14,7 +14,8 @@ const tableMap = {
   examSessions: "exam_sessions",
   pdfs: "pdfs",
   questions: "questions",
-  examAnswers: "exam_answers"
+  examAnswers: "exam_answers",
+  examViolations: "exam_violations"
 };
 
 const initialState = () => ({
@@ -24,7 +25,8 @@ const initialState = () => ({
   examSessions: [],
   pdfs: [],
   questions: [],
-  examAnswers: []
+  examAnswers: [],
+  examViolations: []
 });
 
 let state = initialState();
@@ -51,6 +53,8 @@ function camelizeRecord(record) {
     createdBy: record.created_by ?? record.createdBy,
     examId: record.exam_id ?? record.examId,
     studentId: record.student_id ?? record.studentId,
+    sessionId: record.session_id ?? record.sessionId,
+    highResolutionTimestamp: record.high_resolution_timestamp ?? record.highResolutionTimestamp,
     enrolledAt: record.enrolled_at ?? record.enrolledAt,
     startedAt: record.started_at ?? record.startedAt,
     completedAt: record.completed_at ?? record.completedAt,
@@ -81,6 +85,8 @@ function toDbRecord(name, record) {
     createdBy: "created_by",
     examId: "exam_id",
     studentId: "student_id",
+    sessionId: "session_id",
+    highResolutionTimestamp: "high_resolution_timestamp",
     enrolledAt: "enrolled_at",
     startedAt: "started_at",
     completedAt: "completed_at",
@@ -117,7 +123,8 @@ function loadFile() {
       examSessions: (loaded.examSessions || []).map(camelizeRecord),
       pdfs: (loaded.pdfs || []).map(camelizeRecord),
       questions: (loaded.questions || []).map(camelizeRecord),
-      examAnswers: (loaded.examAnswers || []).map(camelizeRecord)
+      examAnswers: (loaded.examAnswers || []).map(camelizeRecord),
+      examViolations: (loaded.examViolations || []).map(camelizeRecord)
     };
   }
 }
