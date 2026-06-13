@@ -84,6 +84,12 @@ function extractResponseText(response) {
   return textParts.join("\n").trim();
 }
 
+async function deleteUploadedFile(client, fileId) {
+  const deleteFn = client?.files?.del || client?.files?.delete;
+  if (typeof deleteFn !== "function") return;
+  await deleteFn.call(client.files, fileId);
+}
+
 async function generateQuestionsFromPdf({ pdf, count, difficulty, typeCounts, difficultyCounts }) {
   if (!config.openaiApiKey) {
     throw new Error("OPENAI_API_KEY is not configured");
@@ -179,7 +185,7 @@ async function generateQuestionsFromPdf({ pdf, count, difficulty, typeCounts, di
 
     return questions.map(normalizeQuestion);
   } finally {
-    await client.files.delete(uploadedFile.id).catch(() => null);
+    await deleteUploadedFile(client, uploadedFile.id).catch(() => null);
   }
 }
 

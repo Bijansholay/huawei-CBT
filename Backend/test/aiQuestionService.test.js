@@ -20,6 +20,10 @@ class FakeOpenAI {
         FakeOpenAI.uploads.push(args);
         return { id: "file-test-123" };
       },
+      del: async (id) => {
+        FakeOpenAI.deletes.push(id);
+        return true;
+      },
       delete: async (id) => {
         FakeOpenAI.deletes.push(id);
         return true;
