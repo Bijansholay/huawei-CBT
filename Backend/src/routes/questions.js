@@ -64,6 +64,7 @@ router.post("/generate", upload.single("pdf"), asyncHandler(async (req, res) => 
       ? store.collection("pdfs").find((item) => item.id === resolvedPdfId)
       : null;
 
+  if (!resolvedExamId) return fail(res, 400, "examId is required so generated questions can be saved to an exam");
   if (resolvedExamId && !exam) return fail(res, 404, "Exam not found");
   if (!pdf) return fail(res, 404, "PDF not found");
 
@@ -76,10 +77,6 @@ router.post("/generate", upload.single("pdf"), asyncHandler(async (req, res) => 
       typeCounts,
       difficultyCounts
     });
-
-    if (!exam) {
-      return created(res, { questions: generated }, "Questions generated");
-    }
 
     const questions = generated.map((question) => {
       return store.insert("questions", {
