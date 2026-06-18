@@ -48,6 +48,7 @@ CREATE TABLE IF NOT EXISTS exam_enrollments (
 CREATE TABLE IF NOT EXISTS questions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   exam_id UUID NOT NULL REFERENCES exams(id) ON DELETE CASCADE,
+  track VARCHAR(100),
   question TEXT NOT NULL,
   options JSONB NOT NULL,
   correct_option VARCHAR(10) NOT NULL,
@@ -60,6 +61,7 @@ CREATE TABLE IF NOT EXISTS questions (
 
 ALTER TABLE questions ADD COLUMN IF NOT EXISTS question_type VARCHAR(20) DEFAULT 'single';
 ALTER TABLE questions ADD COLUMN IF NOT EXISTS difficulty VARCHAR(20) DEFAULT 'medium';
+ALTER TABLE questions ADD COLUMN IF NOT EXISTS track VARCHAR(100);
 
 CREATE TABLE IF NOT EXISTS exam_sessions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -102,3 +104,4 @@ CREATE INDEX IF NOT EXISTS idx_exams_status ON exams(status);
 CREATE INDEX IF NOT EXISTS idx_exam_enrollments_student ON exam_enrollments(student_id);
 CREATE INDEX IF NOT EXISTS idx_exam_sessions_student_exam ON exam_sessions(student_id, exam_id);
 CREATE INDEX IF NOT EXISTS idx_exam_violations_exam_student ON exam_violations(exam_id, student_id);
+CREATE INDEX IF NOT EXISTS idx_questions_track_exam ON questions(track, exam_id);
