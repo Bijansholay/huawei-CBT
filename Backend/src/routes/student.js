@@ -166,4 +166,56 @@ function getEnrolledExam(examId, studentId) {
   return store.collection("exams").find((item) => item.id === examId);
 }
 
+// helper to resolve option labels (shared logic)
+function resolveOptionLabel(value, options) {
+  if (value === undefined || value === null) return "";
+  const target = String(value).trim();
+  if (!target) return "";
+  const normalizedTarget = target.toLowerCase();
+  const upperTarget = target.toUpperCase();
+
+  const byLabel = options.find((option) => String(option.label || "").toUpperCase() === upperTarget);
+  if (byLabel) return String(byLabel.label || "").toUpperCase();
+
+  const byText = options.find((option) => String(option.text || "").trim().toLowerCase() === normalizedTarget);
+  if (byText) return String(byText.label || "").toUpperCase();
+
+  return upperTarget;
+}
+
+// GET /exams/:id/review - review the most recent completed session for the current student
+router.get('/exams/:id/review', (req, res) => {
+  const exam = getEnrolledExam(req.params.id, req.user.id);
+  if (!exam) return fail(res, 404, 'Exam not found or not enrolled');
+
+  const sessions = store.collection('examSessions')
+    .filter((s) => s.examId === exam.id && s.studentId === req.user.id && s.status === 'completed')
+    .sort((a, b) => new Date(b.completedAt || b.startedAt || 0).getTime() - new Date(a.completedAt || a.startedAt || 0).getTime());
+
+  const session = sessions[0];
+  if (!session) return fail(res, 400, 'No completed session found for this exam');
+
+  const answers = store.collection('examAnswers').filter((a) => a.sessionId === session.id || a.session_id === session.id);
+
+  const review = answers.map((ans) => {
+    const question = store.collection('questions').find((q) => q.id === ans.questionId || q.id === ans.question_id);
+    const options = normalizeOptions(question?.options);
+    const correctLabel = resolveOptionLabel(question?.correctOption || question?.correct_option, options);
+    const selectedLabel = resolveOptionLabel(ans.selectedOption || ans.selected_option, options);
+
+    return {
+      questionId: question ? question.id : ans.questionId || ans.question_id,
+      question: question ? question.question : null,
+      options,
+      correctOption: correctLabel || (question ? (question.correctOption || question.correct_option) : null),
+      selectedOption: selectedLabel || (ans.selectedOption || ans.selected_option || null),
+      isCorrect: Boolean(ans.isCorrect || ans.is_correct),
+      explanation: question ? question.explanation : null
+    };
+  });
+
+  return ok(res, { session, review });
+});
+
+
 module.exports = router;
