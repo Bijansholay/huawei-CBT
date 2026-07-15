@@ -55,6 +55,12 @@ For production, deploy the backend first and set:
 VITE_API_URL=https://your-backend-domain.com/api
 ```
 
+If you use AWS Lightsail, the backend URL will typically look like:
+
+```env
+VITE_API_URL=https://your-lightsail-domain-or-ip/api
+```
+
 An example production env file is included at `.env.production.example`.
 
 ## Build

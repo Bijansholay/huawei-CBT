@@ -12,16 +12,16 @@ Use this in the frontend:
 VITE_API_URL=https://your-backend-domain.com/api
 ```
 
-If the backend is deployed on Cloud Run, the public URL will look like:
+If the backend is deployed on AWS Lightsail, the public URL will look like:
 
 ```text
-https://huawei-cbt-backend-xxxxx-uc.a.run.app
+https://your-lightsail-domain-or-ip
 ```
 
 So the frontend API base becomes:
 
 ```text
-https://huawei-cbt-backend-xxxxx-uc.a.run.app/api
+https://your-lightsail-domain-or-ip/api
 ```
 
 For browser requests to work, the backend must allow the frontend origin:
@@ -118,6 +118,22 @@ npm run start:prod
 ```
 
 The server refuses to start in production if required secrets, CORS origin, or Supabase settings are missing.
+
+## AWS Lightsail Deployment
+
+This backend is containerized already, so it can run on an AWS Lightsail Container Service without code changes.
+
+Use the following environment variables in Lightsail:
+
+- `JWT_SECRET`
+- `ADMIN_EMAIL`
+- `ADMIN_PASSWORD`
+- `CORS_ORIGIN`
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_KEY`
+- `OPENAI_API_KEY`
+
+Keep these values in the Lightsail service, not in the repo. The service should run from `Backend/` with the included Dockerfile and expose `/api/health` for health checks.
 
 ## Response Shape
 
