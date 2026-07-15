@@ -96,7 +96,7 @@ Set these production variables:
 NODE_ENV=production
 PORT=3000
 STORAGE_DRIVER=supabase
-AI_PROVIDER=openai
+AI_PROVIDER=gemini
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_KEY=your-service-role-key
 JWT_SECRET=replace-with-a-long-random-secret-at-least-32-characters
@@ -111,7 +111,7 @@ RATE_LIMIT_MAX=300
 OPENAI_API_KEY=your-openai-api-key
 OPENAI_MODEL=gpt-4o-mini
 GEMINI_API_KEY=your-gemini-api-key
-GEMINI_MODEL=gemini-1.5-flash
+GEMINI_MODEL=gemini-2.5-flash
 ```
 
 Production command:

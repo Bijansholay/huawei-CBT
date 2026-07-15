@@ -11,11 +11,6 @@ if [[ -z "${LIGHTSAIL_SERVICE_NAME:-}" ]]; then
   exit 1
 fi
 
-if [[ -z "${JWT_SECRET:-}" || -z "${ADMIN_EMAIL:-}" || -z "${ADMIN_PASSWORD:-}" || -z "${CORS_ORIGIN:-}" || -z "${SUPABASE_URL:-}" || -z "${SUPABASE_SERVICE_KEY:-}" || -z "${OPENAI_API_KEY:-}" ]]; then
-  echo "One or more required application env vars are missing" >&2
-  exit 1
-fi
-
 LIGHTSAIL_CONTAINER_NAME="${LIGHTSAIL_CONTAINER_NAME:-app}"
 LIGHTSAIL_CONTAINER_PORT="${LIGHTSAIL_CONTAINER_PORT:-3000}"
 LIGHTSAIL_IMAGE_LABEL="${LIGHTSAIL_IMAGE_LABEL:-app}"
@@ -25,8 +20,32 @@ LIGHTSAIL_UNHEALTHY_THRESHOLD="${LIGHTSAIL_UNHEALTHY_THRESHOLD:-3}"
 LIGHTSAIL_HEALTH_CHECK_TIMEOUT="${LIGHTSAIL_HEALTH_CHECK_TIMEOUT:-5}"
 LIGHTSAIL_HEALTH_CHECK_INTERVAL="${LIGHTSAIL_HEALTH_CHECK_INTERVAL:-10}"
 LIGHTSAIL_HEALTH_SUCCESS_CODES="${LIGHTSAIL_HEALTH_SUCCESS_CODES:-200-399}"
+AI_PROVIDER="${AI_PROVIDER:-gemini}"
 OPENAI_MODEL="${OPENAI_MODEL:-gpt-4o-mini}"
+GEMINI_MODEL="${GEMINI_MODEL:-gemini-2.5-flash}"
 LOCAL_IMAGE="${LIGHTSAIL_SERVICE_NAME}:$(git rev-parse --short HEAD 2>/dev/null || echo latest)"
+
+for required_var in JWT_SECRET ADMIN_EMAIL ADMIN_PASSWORD CORS_ORIGIN SUPABASE_URL SUPABASE_SERVICE_KEY; do
+  if [[ -z "${!required_var:-}" ]]; then
+    echo "${required_var} is required" >&2
+    exit 1
+  fi
+done
+
+if [[ "${AI_PROVIDER}" == "openai" ]]; then
+  if [[ -z "${OPENAI_API_KEY:-}" ]]; then
+    echo "OPENAI_API_KEY is required when AI_PROVIDER=openai" >&2
+    exit 1
+  fi
+elif [[ "${AI_PROVIDER}" == "gemini" ]]; then
+  if [[ -z "${GEMINI_API_KEY:-}" ]]; then
+    echo "GEMINI_API_KEY is required when AI_PROVIDER=gemini" >&2
+    exit 1
+  fi
+else
+  echo "AI_PROVIDER must be openai or gemini" >&2
+  exit 1
+fi
 
 echo "Building backend image: ${LOCAL_IMAGE}"
 docker build -t "${LOCAL_IMAGE}" Backend
@@ -50,6 +69,7 @@ const environment = {
   PORT: containerPort,
   STORAGE_DRIVER: 'supabase',
   TRUST_PROXY: 'true',
+  AI_PROVIDER: env.AI_PROVIDER || 'gemini',
   JWT_SECRET: env.JWT_SECRET,
   ADMIN_EMAIL: env.ADMIN_EMAIL,
   ADMIN_PASSWORD: env.ADMIN_PASSWORD,
@@ -57,7 +77,9 @@ const environment = {
   SUPABASE_URL: env.SUPABASE_URL,
   SUPABASE_SERVICE_KEY: env.SUPABASE_SERVICE_KEY,
   OPENAI_API_KEY: env.OPENAI_API_KEY,
-  OPENAI_MODEL: env.OPENAI_MODEL || 'gpt-4o-mini'
+  OPENAI_MODEL: env.OPENAI_MODEL || 'gpt-4o-mini',
+  GEMINI_API_KEY: env.GEMINI_API_KEY,
+  GEMINI_MODEL: env.GEMINI_MODEL || 'gemini-2.5-flash'
 };
 
 const containers = {};

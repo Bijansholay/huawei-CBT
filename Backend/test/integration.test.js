@@ -1,10 +1,11 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
 
 process.env.NODE_ENV = "development";
-process.env.DATA_FILE = path.join("/private/tmp", `huawei-cbt-test-${process.pid}.json`);
+process.env.DATA_FILE = path.join(os.tmpdir(), `huawei-cbt-test-${process.pid}.json`);
 process.env.STORAGE_DRIVER = "file";
 process.env.ADMIN_EMAIL = "admin@test.local";
 process.env.ADMIN_PASSWORD = "admin-password";
