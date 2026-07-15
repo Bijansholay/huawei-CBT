@@ -114,5 +114,73 @@ test("formatAIGenerationError reports network restrictions clearly", () => {
 
   const formatted = formatAIGenerationError({ code: "ENOTFOUND", message: "getaddrinfo ENOTFOUND api.openai.com" });
   assert.equal(formatted.code, "AI_NETWORK_RESTRICTION");
-  assert.match(formatted.message, /cannot reach OpenAI/i);
+  assert.match(formatted.message, /cannot reach the AI provider/i);
+});
+
+test("generateQuestionsFromPdf can use Gemini as a provider", async () => {
+  const originalFetch = global.fetch;
+  process.env.AI_PROVIDER = "gemini";
+  process.env.GEMINI_API_KEY = "gemini-test-key";
+  process.env.GEMINI_MODEL = "gemini-1.5-flash";
+
+  const configPathGemini = require.resolve("../src/config");
+  const servicePathGemini = require.resolve("../src/services/aiQuestionService");
+  delete require.cache[configPathGemini];
+  delete require.cache[servicePathGemini];
+
+  global.fetch = async () => ({
+    ok: true,
+    json: async () => ({
+      candidates: [
+        {
+          content: {
+            parts: [
+              {
+                text: JSON.stringify({
+                  questions: [
+                    {
+                      question: "What is 1 + 1?",
+                      options: { A: "1", B: "2", C: "3", D: "4" },
+                      correctOption: "B",
+                      explanation: "Simple arithmetic.",
+                      difficulty: "easy",
+                      questionType: "single"
+                    }
+                  ]
+                })
+              }
+            ]
+          }
+        }
+      ]
+    }),
+    text: async () => ""
+  });
+
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "huawei-cbt-gemini-"));
+  const pdfPath = path.join(tempDir, "sample.pdf");
+  fs.writeFileSync(pdfPath, "%PDF-1.4 test");
+
+  try {
+    const { generateQuestionsFromPdf: generateWithGemini } = require("../src/services/aiQuestionService");
+    const questions = await generateWithGemini({
+      pdf: { path: pdfPath },
+      count: 1,
+      difficulty: "easy",
+      typeCounts: { single: 1 },
+      difficultyCounts: { easy: 1 }
+    });
+
+    assert.equal(questions.length, 1);
+    assert.equal(questions[0].question, "What is 1 + 1?");
+    assert.equal(questions[0].correctOption, "B");
+  } finally {
+    global.fetch = originalFetch;
+    fs.rmSync(tempDir, { recursive: true, force: true });
+    delete require.cache[configPathGemini];
+    delete require.cache[servicePathGemini];
+    process.env.AI_PROVIDER = "openai";
+    delete process.env.GEMINI_API_KEY;
+    delete process.env.GEMINI_MODEL;
+  }
 });

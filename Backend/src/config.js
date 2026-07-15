@@ -10,12 +10,15 @@ const config = {
   port: Number(process.env.PORT || 3000),
   jwtSecret: process.env.JWT_SECRET || "change-this-secret-in-production",
   tokenTtlSeconds: Number(process.env.JWT_TTL_SECONDS || 60 * 60 * 24),
+  aiProvider: (process.env.AI_PROVIDER || "openai").toLowerCase(),
   storageDriver: process.env.STORAGE_DRIVER || (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_KEY ? "supabase" : "file"),
   dataFile: process.env.DATA_FILE || "data/store.json",
   supabaseUrl: process.env.SUPABASE_URL || "",
   supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY || "",
   openaiApiKey: process.env.OPENAI_API_KEY || "",
   openaiModel: process.env.OPENAI_MODEL || "gpt-4o-mini",
+  geminiApiKey: process.env.GEMINI_API_KEY || "",
+  geminiModel: process.env.GEMINI_MODEL || "gemini-1.5-flash",
   corsOrigins: parseOrigins(process.env.CORS_ORIGIN || "*"),
   bodyLimit: process.env.BODY_LIMIT || "1mb",
   adminEmail: process.env.ADMIN_EMAIL || "admin@example.com",
@@ -49,8 +52,14 @@ function validateProductionConfig() {
   if (!config.supabaseUrl || !config.supabaseServiceKey) {
     errors.push("SUPABASE_URL and SUPABASE_SERVICE_KEY must be set in production");
   }
-  if (!process.env.OPENAI_API_KEY) {
-    errors.push("OPENAI_API_KEY must be set in production for AI question generation");
+  if (!["openai", "gemini"].includes(config.aiProvider)) {
+    errors.push("AI_PROVIDER must be either openai or gemini");
+  }
+  if (config.aiProvider === "openai" && !process.env.OPENAI_API_KEY) {
+    errors.push("OPENAI_API_KEY must be set when AI_PROVIDER=openai");
+  }
+  if (config.aiProvider === "gemini" && !process.env.GEMINI_API_KEY) {
+    errors.push("GEMINI_API_KEY must be set when AI_PROVIDER=gemini");
   }
 
   if (errors.length) {

@@ -48,7 +48,7 @@ The token comes from `POST /api/auth/login`.
 
 - Node.js 20+
 - Supabase project for production storage
-- OpenAI API key for AI question generation
+- AI provider API key for question generation
 
 ## Local Development
 
@@ -96,6 +96,7 @@ Set these production variables:
 NODE_ENV=production
 PORT=3000
 STORAGE_DRIVER=supabase
+AI_PROVIDER=openai
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_KEY=your-service-role-key
 JWT_SECRET=replace-with-a-long-random-secret-at-least-32-characters
@@ -109,6 +110,8 @@ RATE_LIMIT_WINDOW_MS=900000
 RATE_LIMIT_MAX=300
 OPENAI_API_KEY=your-openai-api-key
 OPENAI_MODEL=gpt-4o-mini
+GEMINI_API_KEY=your-gemini-api-key
+GEMINI_MODEL=gemini-1.5-flash
 ```
 
 Production command:
@@ -125,6 +128,7 @@ This backend is containerized already, so it can run on an AWS Lightsail Contain
 
 Use the following environment variables in Lightsail:
 
+- `AI_PROVIDER`
 - `JWT_SECRET`
 - `ADMIN_EMAIL`
 - `ADMIN_PASSWORD`
@@ -132,6 +136,7 @@ Use the following environment variables in Lightsail:
 - `SUPABASE_URL`
 - `SUPABASE_SERVICE_KEY`
 - `OPENAI_API_KEY`
+- `GEMINI_API_KEY`
 
 Keep these values in the Lightsail service, not in the repo. The service should run from `Backend/` with the included Dockerfile and expose `/api/health` for health checks.
 
@@ -144,6 +149,7 @@ The workflow expects these GitHub repository secrets:
 - `AWS_ROLE_TO_ASSUME`
 - `AWS_REGION`
 - `LIGHTSAIL_SERVICE_NAME`
+- `AI_PROVIDER`
 - `JWT_SECRET`
 - `ADMIN_EMAIL`
 - `ADMIN_PASSWORD`
@@ -151,7 +157,9 @@ The workflow expects these GitHub repository secrets:
 - `SUPABASE_URL`
 - `SUPABASE_SERVICE_KEY`
 - `OPENAI_API_KEY`
+- `GEMINI_API_KEY`
 - `OPENAI_MODEL` if you want to override the default model
+- `GEMINI_MODEL` if you want to override the default model
 
 Before the first push, create the Lightsail container service in the AWS console and make sure its name matches `LIGHTSAIL_SERVICE_NAME`.
 
@@ -299,7 +307,7 @@ Login returns:
 | --- | --- | --- |
 | `GET` | `/api/questions` | List questions, optionally filtered by `examId` |
 | `POST` | `/api/questions` | Create one question manually |
-| `POST` | `/api/questions/generate` | Generate questions from an uploaded PDF using OpenAI |
+| `POST` | `/api/questions/generate` | Generate questions from an uploaded PDF using the configured AI provider |
 | `PUT` | `/api/questions/:id` | Update a question |
 | `DELETE` | `/api/questions/:id` | Delete a question |
 

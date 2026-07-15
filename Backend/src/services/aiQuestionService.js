@@ -25,7 +25,7 @@ function isNetworkRestrictionError(err) {
 
 function formatAIGenerationError(err) {
   if (isNetworkRestrictionError(err)) {
-    const wrapped = new Error("AI generation failed because the server cannot reach OpenAI. Check network/sandbox access and try again.");
+    const wrapped = new Error("AI generation failed because the server cannot reach the AI provider. Check network access and try again.");
     wrapped.code = "AI_NETWORK_RESTRICTION";
     return wrapped;
   }
@@ -81,6 +81,14 @@ function extractResponseText(response) {
     }
   }
 
+  for (const candidate of response?.candidates || []) {
+    for (const part of candidate?.content?.parts || []) {
+      if (typeof part?.text === "string" && part.text.trim()) {
+        textParts.push(part.text.trim());
+      }
+    }
+  }
+
   return textParts.join("\n").trim();
 }
 
@@ -90,12 +98,18 @@ async function deleteUploadedFile(client, fileId) {
   await deleteFn.call(client.files, fileId);
 }
 
-async function generateQuestionsFromPdf({ pdf, count, difficulty, typeCounts, difficultyCounts }) {
-  if (!config.openaiApiKey) {
-    throw new Error("OPENAI_API_KEY is not configured");
-  }
+function readPdfBase64(pdf) {
   if (!pdf || !pdf.path || !fs.existsSync(pdf.path)) {
     throw new Error("PDF file is not available on this server");
+  }
+
+  const buffer = fs.readFileSync(pdf.path);
+  return buffer.toString("base64");
+}
+
+async function generateWithOpenAI({ pdf, count, difficulty, typeCounts, difficultyCounts }) {
+  if (!config.openaiApiKey) {
+    throw new Error("OPENAI_API_KEY is not configured");
   }
 
   const client = new OpenAI({ apiKey: config.openaiApiKey });
@@ -187,6 +201,69 @@ async function generateQuestionsFromPdf({ pdf, count, difficulty, typeCounts, di
   } finally {
     await deleteUploadedFile(client, uploadedFile.id).catch(() => null);
   }
+}
+
+async function generateWithGemini({ pdf, count, difficulty, typeCounts, difficultyCounts }) {
+  if (!config.geminiApiKey) {
+    throw new Error("GEMINI_API_KEY is not configured");
+  }
+
+  const total = Math.min(Math.max(Number(count || 5), 1), 50);
+  const pdfBase64 = readPdfBase64(pdf);
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(config.geminiModel)}:generateContent?key=${encodeURIComponent(config.geminiApiKey)}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      contents: [
+        {
+          role: "user",
+          parts: [
+            { text: buildPrompt({ count: total, difficulty, typeCounts, difficultyCounts }) },
+            { inlineData: { mimeType: "application/pdf", data: pdfBase64 } }
+          ]
+        }
+      ],
+      generationConfig: {
+        temperature: 0.2,
+        responseMimeType: "application/json"
+      }
+    })
+  });
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    throw new Error(`Gemini request failed with ${response.status}: ${body || response.statusText}`);
+  }
+
+  const payload = await response.json();
+  const rawText = extractResponseText(payload);
+  if (!rawText) {
+    throw new Error("Gemini generation returned an empty response");
+  }
+
+  let parsed;
+  try {
+    parsed = JSON.parse(rawText);
+  } catch (err) {
+    throw new Error(`Gemini generation returned invalid JSON: ${err.message}`);
+  }
+
+  const questions = Array.isArray(parsed.questions) ? parsed.questions : [];
+  if (questions.length === 0) {
+    throw new Error("Gemini generation returned no questions");
+  }
+
+  return questions.map(normalizeQuestion);
+}
+
+async function generateQuestionsFromPdf({ pdf, count, difficulty, typeCounts, difficultyCounts }) {
+  if (config.aiProvider === "gemini") {
+    return generateWithGemini({ pdf, count, difficulty, typeCounts, difficultyCounts });
+  }
+
+  return generateWithOpenAI({ pdf, count, difficulty, typeCounts, difficultyCounts });
 }
 
 module.exports = {
