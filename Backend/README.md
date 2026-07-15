@@ -135,6 +135,36 @@ Use the following environment variables in Lightsail:
 
 Keep these values in the Lightsail service, not in the repo. The service should run from `Backend/` with the included Dockerfile and expose `/api/health` for health checks.
 
+## GitHub Actions CI/CD
+
+This repo includes a push-to-deploy workflow at [`../.github/workflows/deploy-lightsail.yml`](../.github/workflows/deploy-lightsail.yml).
+
+The workflow expects these GitHub repository secrets:
+
+- `AWS_ROLE_TO_ASSUME`
+- `AWS_REGION`
+- `LIGHTSAIL_SERVICE_NAME`
+- `JWT_SECRET`
+- `ADMIN_EMAIL`
+- `ADMIN_PASSWORD`
+- `CORS_ORIGIN`
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_KEY`
+- `OPENAI_API_KEY`
+- `OPENAI_MODEL` if you want to override the default model
+
+Before the first push, create the Lightsail container service in the AWS console and make sure its name matches `LIGHTSAIL_SERVICE_NAME`.
+
+On every push to `main`, the workflow:
+
+- Installs backend dependencies
+- Runs the backend test suite
+- Builds the Docker image from `Backend/`
+- Pushes the image to your Lightsail container service
+- Creates a new Lightsail deployment pointing at `/api/health`
+
+For GitHub Actions, the role-based path is the better choice because AWS roles use temporary credentials instead of long-term access keys: [IAM roles](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles.html). AWS also recommends temporary credentials over IAM users with long-term credentials for federated access: [IAM users](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_users.html).
+
 ## Response Shape
 
 Success:
