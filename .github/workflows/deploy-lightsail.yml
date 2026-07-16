@@ -16,6 +16,7 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment: lightsail
     permissions:
       contents: read
       id-token: write
@@ -58,6 +59,7 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ secrets.AWS_REGION }}
+          audience: sts.amazonaws.com
 
       - name: Deploy to Lightsail
         run: bash Backend/scripts/deploy-lightsail.sh
