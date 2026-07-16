@@ -46,7 +46,7 @@ The token comes from `POST /api/auth/login`.
 
 ## Requirements
 
-- Node.js 20+
+- Node.js 22+
 - Supabase project for production storage
 - AI provider API key for question generation
 
