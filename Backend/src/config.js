@@ -2,7 +2,7 @@ require("dotenv").config();
 
 function parseOrigins(value) {
   if (!value || value === "*") return ["*"];
-  return value.split(",").map((origin) => origin.trim()).filter(Boolean);
+  return value.split(",").map((origin) => origin.trim().replace(/\/$/, "")).filter(Boolean);
 }
 
 const config = {

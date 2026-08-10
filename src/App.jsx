@@ -1,6 +1,7 @@
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ExamProvider } from './context/ExamContext';
+import ProtectedRoute from './components/ProtectedRoute';
 
 // Pages
 import Login from './pages/Login';
@@ -25,12 +26,12 @@ function App() {
             <Route path="/" element={<Login />} />
             
             {/* Student Routes */}
-            <Route path="/student" element={<StudentDashboard />} />
-            <Route path="/student/exam/:id" element={<ExamPage />} />
-            <Route path="/student/result/:id" element={<ResultPage />} />
+            <Route path="/student" element={<ProtectedRoute allowedRole="student"><StudentDashboard /></ProtectedRoute>} />
+            <Route path="/student/exam/:id" element={<ProtectedRoute allowedRole="student"><ExamPage /></ProtectedRoute>} />
+            <Route path="/student/result/:id" element={<ProtectedRoute allowedRole="student"><ResultPage /></ProtectedRoute>} />
 
             {/* Admin Routes */}
-            <Route path="/admin" element={<AdminLayout />}>
+            <Route path="/admin" element={<ProtectedRoute allowedRole="admin"><AdminLayout /></ProtectedRoute>}>
               <Route index element={<AdminDashboard />} />
               <Route path="students" element={<StudentManagement />} />
               <Route path="exams" element={<ExamManagement />} />

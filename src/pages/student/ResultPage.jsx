@@ -104,7 +104,7 @@ export default function ResultPage() {
               </div>
 
               {summary ? (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 relative z-10 w-full md:w-auto">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3 relative z-10 w-full md:w-auto">
                   <div className="bg-white border border-gray-100 shadow-sm rounded-xl p-3 text-center min-w-[90px]">
                     <div className="flex justify-center items-center gap-1 text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1">
                       <Target size={12} className="text-gray-400" /> Score
@@ -137,7 +137,7 @@ export default function ResultPage() {
                   </div>
                 </div>
               ) : submittedScore ? (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 relative z-10 w-full md:w-auto">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3 relative z-10 w-full md:w-auto">
                   <div className="bg-white border border-gray-100 shadow-sm rounded-xl p-3 text-center min-w-[90px]">
                     <div className="flex justify-center items-center gap-1 text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1">
                       <Target size={12} className="text-gray-400" /> Score

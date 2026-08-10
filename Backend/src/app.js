@@ -29,6 +29,21 @@ app.use(corsMiddleware);
 app.use(rateLimit);
 app.use(express.json({ limit: config.bodyLimit }));
 app.use(express.urlencoded({ extended: true }));
+app.get("/", (req, res) => ok(res, { service: "Huawei CBT Backend", status: "running" }));
+app.get("/api/health", (req, res) => ok(res, { status: "ok" }));
+app.get("/api/ready", async (req, res) => {
+  try {
+    await store.ready;
+    return ok(res, {
+      status: "ready",
+      env: config.env,
+      storage: config.storageDriver
+    });
+  } catch (err) {
+    return fail(res, 503, `Service degraded: ${err.message}`);
+  }
+});
+
 app.use(async (req, res, next) => {
   try {
     await store.ready;
@@ -36,16 +51,6 @@ app.use(async (req, res, next) => {
   } catch (err) {
     next(err);
   }
-});
-
-app.get("/", (req, res) => ok(res, { service: "Huawei CBT Backend", status: "running" }));
-app.get("/api/health", (req, res) => ok(res, { status: "ok" }));
-app.get("/api/ready", (req, res) => {
-  return ok(res, {
-    status: "ready",
-    env: config.env,
-    storage: config.storageDriver
-  });
 });
 
 app.use("/api/auth", authRoutes);
