@@ -61,7 +61,7 @@ If you use AWS Lightsail, the backend URL will typically look like:
 VITE_API_URL=https://your-lightsail-domain-or-ip/api
 ```
 
-An example production env file is included at `.env.production.example`.
+An example production env file is included at `.env.production.example`
 
 ## Build
 
