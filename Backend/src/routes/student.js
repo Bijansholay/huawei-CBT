@@ -58,11 +58,23 @@ router.get("/exams/:id", (req, res) => {
   const exam = getEnrolledExam(req.params.id, req.user.id);
   if (!exam) return fail(res, 404, "Exam not found or not enrolled");
 
-  const questions = store.collection("questions")
-    .filter((item) => item.examId === exam.id)
-    .map(({ correctOption, correct_option, ...question }) => normalizeStudentQuestion(question));
+  const allQuestions = store.collection("questions")
+    .filter((item) => item.examId === exam.id);
 
-  return ok(res, { exam, questions });
+  // Fisher-Yates Shuffle
+  const shuffled = [...allQuestions];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+
+  // Peg to totalQuestions limit
+  const limit = Math.max(0, Number(exam.totalQuestions || exam.total_questions || shuffled.length));
+  const sliced = shuffled.slice(0, limit);
+
+  const clientQuestions = sliced.map(({ correctOption, correct_option, ...question }) => normalizeStudentQuestion(question));
+
+  return ok(res, { exam, questions: clientQuestions });
 });
 
 router.post("/exams/:id/start", asyncHandler(async (req, res) => {
