@@ -218,6 +218,11 @@ router.post("/:examId/submit", authenticate, requireRole("student"), asyncHandle
   }
 
   const completedAt = store.now();
+  const finalTotalQuestions = Math.min(
+    Number(exam.totalQuestions || exam.total_questions || questions.length),
+    questions.length
+  );
+
   let completed = null;
   try {
     completed = await store.update("examSessions", session.id, {
@@ -225,7 +230,7 @@ router.post("/:examId/submit", authenticate, requireRole("student"), asyncHandle
       completedAt,
       completed_at: completedAt,
       score,
-      totalQuestions: questions.length || Number(exam.totalQuestions) || answers.length
+      totalQuestions: finalTotalQuestions
     });
   } catch (err) {
     console.error({
@@ -237,8 +242,7 @@ router.post("/:examId/submit", authenticate, requireRole("student"), asyncHandle
     });
   }
 
-  const totalQuestions = questions.length || Number(exam.totalQuestions) || answers.length;
-  const percentage = totalQuestions ? Math.round((Number(score || 0) / Number(totalQuestions || 1)) * 100) : 0;
+  const percentage = finalTotalQuestions ? Math.round((Number(score || 0) / Number(finalTotalQuestions || 1)) * 100) : 0;
 
   if (!completed) {
     completed = {
@@ -247,7 +251,7 @@ router.post("/:examId/submit", authenticate, requireRole("student"), asyncHandle
       completedAt,
       completed_at: completedAt,
       score,
-      totalQuestions,
+      totalQuestions: finalTotalQuestions,
       percentage
     };
     Object.assign(session, completed);
@@ -258,7 +262,7 @@ router.post("/:examId/submit", authenticate, requireRole("student"), asyncHandle
   return ok(res, {
     result: completed,
     score,
-    totalQuestions,
+    totalQuestions: finalTotalQuestions,
     percentage
   }, "Exam submitted");
 }));

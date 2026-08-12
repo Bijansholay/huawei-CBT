@@ -333,3 +333,8 @@ export async function getAdminExamResults(examId) {
   const result = await apiFetch(`/admin/results/exam/${examId}`);
   return result.data;
 }
+
+export async function getExamReview(examId) {
+  const result = await apiFetch(`/student/exams/${examId}/review`);
+  return result.data;
+}

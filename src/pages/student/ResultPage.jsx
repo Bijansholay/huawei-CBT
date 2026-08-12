@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import Navbar from '../../components/student/Navbar';
 import { motion } from 'framer-motion';
 import { ArrowLeft, CheckCircle2, XCircle, Clock, Target, Award } from 'lucide-react';
-import { getExamResults } from '../../services/api';
+import { getExamResults, getExamReview } from '../../services/api';
 import { useExam } from '../../context/ExamContext';
 
 export default function ResultPage() {
@@ -11,6 +11,8 @@ export default function ResultPage() {
   const navigate = useNavigate();
   const { lastSubmission } = useExam();
   const [result, setResult] = useState(null);
+  const [review, setReview] = useState(null);
+  const [isReviewLoading, setIsReviewLoading] = useState(true);
   const [examTitle, setExamTitle] = useState('');
   const [error, setError] = useState('');
 
@@ -18,25 +20,34 @@ export default function ResultPage() {
     let active = true;
 
     async function loadResult() {
+      setIsReviewLoading(true);
       try {
-        const data = await getExamResults(id);
-        const sessions = data.results || [];
+        const [resultData, reviewData] = await Promise.all([
+          getExamResults(id),
+          getExamReview(id).catch(() => null)
+        ]);
+        const sessions = resultData.results || [];
         const latest = sessions[0] || null;
         if (active) {
-          Promise.resolve().then(() => {
-            setExamTitle(data.exam?.title || '');
-            setResult(latest);
-          });
+          setExamTitle(resultData.exam?.title || '');
+          setResult(latest);
+          if (reviewData) {
+            setReview(reviewData.review || []);
+          }
         }
       } catch (err) {
         if (active) {
-          Promise.resolve().then(() => setError(err.message || 'Failed to load result'));
+          setError(err.message || 'Failed to load result');
+        }
+      } finally {
+        if (active) {
+          setIsReviewLoading(false);
         }
       }
     }
 
     if (lastSubmission?.examId === id && lastSubmission.result) {
-      Promise.resolve().then(() => setResult(lastSubmission.result));
+      setResult(lastSubmission.result);
     }
 
     loadResult();
@@ -193,6 +204,66 @@ export default function ResultPage() {
           >
             {error ? (
               <div className="soft-card p-5 text-sm text-red-600">{error}</div>
+            ) : isReviewLoading ? (
+              <div className="soft-card p-6 text-sm text-gray-500 text-center">Loading review details...</div>
+            ) : review && review.length > 0 ? (
+              <div className="space-y-4">
+                {review.map((item, idx) => {
+                  const isCorrect = item.isCorrect;
+                  return (
+                    <div key={item.questionId || idx} className="bg-white rounded-3xl p-5 border border-gray-100 shadow-soft">
+                      <div className="flex items-center justify-between gap-3 mb-3">
+                        <span className="text-xs font-semibold text-gray-500">Question {idx + 1}</span>
+                        <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold ${
+                          isCorrect ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+                        }`}>
+                          {isCorrect ? (
+                            <><CheckCircle2 size={12} /> Correct</>
+                          ) : (
+                            <><XCircle size={12} /> Incorrect</>
+                          )}
+                        </span>
+                      </div>
+
+                      <h3 className="text-sm font-semibold text-gray-900 mb-4 leading-snug">
+                        {item.question}
+                      </h3>
+
+                      <div className="grid sm:grid-cols-2 gap-2 mb-4">
+                        {item.options.map((opt) => {
+                          const isSelected = item.selectedOption === opt.label;
+                          const isCorrectOpt = item.correctOption === opt.label;
+
+                          let optClass = 'bg-gray-50/50 border-gray-100 text-gray-600';
+                          if (isCorrectOpt) {
+                            optClass = 'bg-green-50 border-green-200 text-green-700 font-semibold';
+                          } else if (isSelected && !isCorrectOpt) {
+                            optClass = 'bg-red-50 border-red-200 text-red-700 font-semibold';
+                          }
+
+                          return (
+                            <div key={opt.label} className={`p-3 rounded-xl text-xs border flex items-center justify-between ${optClass}`}>
+                              <span>
+                                <span className="font-bold mr-1.5">{opt.label})</span>
+                                {opt.text}
+                              </span>
+                              {isCorrectOpt && <CheckCircle2 size={14} className="text-green-600 flex-shrink-0 ml-2" />}
+                              {isSelected && !isCorrectOpt && <XCircle size={14} className="text-red-600 flex-shrink-0 ml-2" />}
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {item.explanation && (
+                        <div className="bg-amber-50/40 border border-amber-100/60 rounded-2xl p-4 text-xs text-gray-700">
+                          <strong className="text-amber-800 block mb-1">Explanation:</strong>
+                          {item.explanation}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             ) : result ? (
               <div className="soft-card p-5 text-sm text-gray-600 space-y-2">
                 <p className="font-semibold text-gray-900">Result saved successfully.</p>
