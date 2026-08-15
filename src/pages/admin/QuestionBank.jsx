@@ -60,17 +60,21 @@ function parseBulkQuestions(text) {
         if (match) {
           optionsMap[match[1].toUpperCase()] = match[2].trim();
         }
-      } else if (line.match(/^(Answer:|Correct:|Correct Option:|Ans:)/i)) {
-        correctOptionRaw = line.replace(/^(Answer:|Correct:|Correct Option:|Ans:)\s*/i, '').trim();
-      } else if (line.match(/^(Explanation:|Exp:)/i)) {
-        explanationText = line.replace(/^(Explanation:|Exp:)\s*/i, '').trim();
+      } else if (line.match(/^(Answer|Correct|Correct Answer|Correct Option|Ans)[:\s-]+\s*/i)) {
+        correctOptionRaw = line.replace(/^(Answer|Correct|Correct Answer|Correct Option|Ans)[:\s-]+\s*/i, '').trim();
+      } else if (line.match(/^(Explanation|Explanations|Answer Explanation|Answer Explanations|Exp)[:\s-]+\s*/i)) {
+        explanationText = line.replace(/^(Explanation|Explanations|Answer Explanation|Answer Explanations|Exp)[:\s-]+\s*/i, '').trim();
       } else {
-        if (!questionText && !line.match(/^[A-D][\).:]/i) && !line.match(/^(Answer:|Correct:|Explanation)/i)) {
+        if (!questionText) {
           questionText = line;
-        } else if (questionText && Object.keys(optionsMap).length === 0 && !line.match(/^[A-D][\).:]/i)) {
+        } else if (questionText && Object.keys(optionsMap).length === 0) {
           questionText += ' ' + line;
-        } else if (explanationText) {
-          explanationText += ' ' + line;
+        } else {
+          if (explanationText) {
+            explanationText += '\n' + line;
+          } else {
+            explanationText = line;
+          }
         }
       }
     }
