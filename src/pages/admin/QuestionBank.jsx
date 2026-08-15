@@ -767,7 +767,7 @@ export default function QuestionBank() {
                           <h4 className="text-xs font-bold text-gray-900 mb-3 pr-8 leading-snug">{q.question}</h4>
                           <div className="space-y-1.5 mb-3">
                             {q.options.map((opt, oIdx) => {
-                              const isCorrect = opt === q.correctOption;
+                              const isCorrect = String.fromCharCode(65 + oIdx) === q.correctOption || opt === q.correctOption;
                               return (
                                 <div key={oIdx} className={`px-2.5 py-1.5 rounded-lg text-[11px] border ${
                                   isCorrect ? 'bg-green-50 border-green-200 text-green-700 font-medium' : 'bg-gray-50/50 border-gray-100 text-gray-600'
