@@ -110,9 +110,7 @@ router.post("/generate", upload.single("pdf"), asyncHandler(async (req, res) => 
       return fail(res, 503, `${formattedError.message} Reference: ${req.id}`);
     }
 
-    const message = config.isProduction
-      ? `AI generation failed. Reference: ${req.id}`
-      : `AI generation failed: ${formattedError.message}`;
+    const message = `AI generation failed: ${formattedError.message} (Reference: ${req.id})`;
     return fail(res, 500, message);
   } finally {
     if (req.file?.path) {
