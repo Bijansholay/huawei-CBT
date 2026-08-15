@@ -122,7 +122,7 @@ test("generateQuestionsFromPdf can use Gemini as a provider", async () => {
   const originalFetch = global.fetch;
   process.env.AI_PROVIDER = "gemini";
   process.env.GEMINI_API_KEY = "gemini-test-key";
-  process.env.GEMINI_MODEL = "gemini-2.5-flash";
+  process.env.GEMINI_MODEL = "gemini-1.5-flash";
 
   const configPathGemini = require.resolve("../src/config");
   const servicePathGemini = require.resolve("../src/services/aiQuestionService");

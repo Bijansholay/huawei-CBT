@@ -18,7 +18,7 @@ const config = {
   openaiApiKey: (process.env.OPENAI_API_KEY || "").trim(),
   openaiModel: (process.env.OPENAI_MODEL || "gpt-4o-mini").trim(),
   geminiApiKey: (process.env.GEMINI_API_KEY || "").trim(),
-  geminiModel: (process.env.GEMINI_MODEL || "gemini-2.5-flash").trim(),
+  geminiModel: (process.env.GEMINI_MODEL || "gemini-1.5-flash").trim(),
   corsOrigins: parseOrigins(process.env.CORS_ORIGIN || "*"),
   bodyLimit: (process.env.BODY_LIMIT || "1mb").trim(),
   adminEmail: (process.env.ADMIN_EMAIL || "admin@example.com").trim(),

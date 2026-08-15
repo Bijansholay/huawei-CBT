@@ -37,6 +37,89 @@ function optionsToText(options) {
   return '';
 }
 
+function parseBulkQuestions(text) {
+  const chunks = text.split(/\n\s*\n/);
+  const parsedQuestions = [];
+  const errors = [];
+
+  for (let i = 0; i < chunks.length; i++) {
+    const chunk = chunks[i].trim();
+    if (!chunk) continue;
+
+    const lines = chunk.split('\n').map(l => l.trim()).filter(Boolean);
+    let questionText = '';
+    const optionsMap = {};
+    let correctOptionRaw = '';
+    let explanationText = '';
+
+    for (const line of lines) {
+      if (line.match(/^(Question:|Q:)/i)) {
+        questionText = line.replace(/^(Question:|Q:)\s*/i, '').trim();
+      } else if (line.match(/^[A-D][\).:]\s*/i)) {
+        const match = line.match(/^([A-D])[\).:]\s*(.*)/i);
+        if (match) {
+          optionsMap[match[1].toUpperCase()] = match[2].trim();
+        }
+      } else if (line.match(/^(Answer:|Correct:|Correct Option:|Ans:)/i)) {
+        correctOptionRaw = line.replace(/^(Answer:|Correct:|Correct Option:|Ans:)\s*/i, '').trim();
+      } else if (line.match(/^(Explanation:|Exp:)/i)) {
+        explanationText = line.replace(/^(Explanation:|Exp:)\s*/i, '').trim();
+      } else {
+        if (!questionText && !line.match(/^[A-D][\).:]/i) && !line.match(/^(Answer:|Correct:|Explanation)/i)) {
+          questionText = line;
+        } else if (questionText && Object.keys(optionsMap).length === 0 && !line.match(/^[A-D][\).:]/i)) {
+          questionText += ' ' + line;
+        } else if (explanationText) {
+          explanationText += ' ' + line;
+        }
+      }
+    }
+
+    const options = Object.keys(optionsMap).sort().map(k => optionsMap[k]);
+    
+    let correctOption = '';
+    if (correctOptionRaw) {
+      const upperRaw = correctOptionRaw.toUpperCase();
+      if (optionsMap[upperRaw]) {
+        correctOption = optionsMap[upperRaw];
+      } else {
+        const matchedOpt = options.find(opt => opt.toLowerCase() === correctOptionRaw.toLowerCase());
+        if (matchedOpt) {
+          correctOption = matchedOpt;
+        } else {
+          if (upperRaw.length === 1 && ['A', 'B', 'C', 'D'].includes(upperRaw)) {
+            correctOption = optionsMap[upperRaw] || '';
+          } else {
+            correctOption = correctOptionRaw;
+          }
+        }
+      }
+    }
+
+    if (!questionText) {
+      errors.push(`Block ${i + 1}: Missing question text.`);
+      continue;
+    }
+    if (options.length < 2) {
+      errors.push(`Block ${i + 1} ("${questionText.substring(0, 30)}..."): Add at least two options (A, B, etc.).`);
+      continue;
+    }
+    if (!correctOption) {
+      errors.push(`Block ${i + 1} ("${questionText.substring(0, 30)}..."): Missing correct answer or correct answer does not match any options.`);
+      continue;
+    }
+
+    parsedQuestions.push({
+      question: questionText,
+      options,
+      correctOption,
+      explanation: explanationText
+    });
+  }
+
+  return { questions: parsedQuestions, errors };
+}
+
 export default function QuestionBank() {
   const [activeTab, setActiveTab] = useState('ai');
   const fileInputRef = useRef(null);
@@ -59,6 +142,11 @@ export default function QuestionBank() {
   const [isSaving, setIsSaving] = useState(false);
   const [formError, setFormError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+
+  const [bulkInput, setBulkInput] = useState('');
+  const [bulkQuestions, setBulkQuestions] = useState([]);
+  const [bulkErrors, setBulkErrors] = useState([]);
+  const [isBulkSaving, setIsBulkSaving] = useState(false);
 
   const totalTypes = typeCounts.single + typeCounts.multiple + typeCounts.trueFalse;
   const totalDiffs = counts.easy + counts.medium + counts.hard;
@@ -242,6 +330,61 @@ export default function QuestionBank() {
     }
   };
 
+  const handleParseBulk = () => {
+    if (!bulkInput.trim()) {
+      setBulkErrors(['Please paste some questions first.']);
+      setBulkQuestions([]);
+      return;
+    }
+    const { questions: parsed, errors: parsedErrors } = parseBulkQuestions(bulkInput);
+    setBulkQuestions(parsed);
+    setBulkErrors(parsedErrors);
+    if (parsed.length > 0 && parsedErrors.length === 0) {
+      setSuccessMessage(`Successfully parsed ${parsed.length} questions!`);
+    } else {
+      setSuccessMessage('');
+    }
+  };
+
+  const handleSaveBulk = async () => {
+    if (!selectedExamId) {
+      setError('Please select a target exam first.');
+      return;
+    }
+    if (bulkQuestions.length === 0) {
+      setError('No parsed questions to save.');
+      return;
+    }
+
+    setIsBulkSaving(true);
+    setError(null);
+    setSuccessMessage('');
+
+    try {
+      let savedCount = 0;
+      for (const q of bulkQuestions) {
+        await createQuestion({
+          examId: selectedExamId,
+          question: q.question,
+          options: q.options,
+          correctOption: q.correctOption,
+          explanation: q.explanation
+        });
+        savedCount++;
+      }
+      setSuccessMessage(`Successfully imported ${savedCount} questions into the bank!`);
+      setBulkInput('');
+      setBulkQuestions([]);
+      setBulkErrors([]);
+      await loadData();
+    } catch (err) {
+      setError(err.message || 'Failed to save some questions. Please check server logs.');
+    } finally {
+      setIsBulkSaving(false);
+    }
+  };
+
+
   return (
     <div className="max-w-4xl mx-auto">
       <div className="mb-6">
@@ -270,6 +413,14 @@ export default function QuestionBank() {
             onClick={() => setActiveTab('ai')}
           >
             <Sparkles size={14} /> AI Generator
+          </button>
+          <button
+            className={`flex-1 py-2 text-sm font-semibold rounded-xl transition-all flex items-center justify-center gap-1.5 ${
+              activeTab === 'bulk-manual' ? 'bg-brand-50 text-brand-600 shadow-sm' : 'text-gray-500 hover:text-gray-900'
+            }`}
+            onClick={() => setActiveTab('bulk-manual')}
+          >
+            <FileText size={14} /> Bulk Import
           </button>
           <button
             className={`flex-1 py-2 text-sm font-semibold rounded-xl transition-all ${
@@ -498,6 +649,122 @@ export default function QuestionBank() {
                       <button className="flex-1 pill-button bg-brand-500 text-white font-semibold hover:bg-brand-600 shadow-sm" onClick={() => setActiveTab('manual')}>
                         Edit in Bank
                       </button>
+                    </div>
+                  </div>
+                )}
+              </motion.div>
+            )}
+
+            {activeTab === 'bulk-manual' && (
+              <motion.div key="bulk-manual" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                <div className="grid md:grid-cols-3 gap-6">
+                  <div className="md:col-span-2 space-y-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-500 uppercase mb-1.5 ml-1">Target Exam</label>
+                      <select
+                        value={selectedExamId}
+                        onChange={(event) => setSelectedExamId(event.target.value)}
+                        className="w-full px-4 py-2.5 bg-white border border-gray-100 rounded-xl text-sm focus:ring-2 focus:ring-brand-200 outline-none text-gray-900"
+                      >
+                        <option value="">Select target exam for imported questions</option>
+                        {exams.map((exam) => (
+                          <option key={exam.id} value={exam.id}>{exam.title}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-500 uppercase mb-1.5 ml-1">Paste Questions (Plain Text)</label>
+                      <textarea
+                        rows="12"
+                        value={bulkInput}
+                        onChange={(e) => setBulkInput(e.target.value)}
+                        placeholder="Paste questions here..."
+                        className="w-full px-4 py-3 bg-white border border-gray-100 rounded-2xl text-sm outline-none text-gray-900 resize-y focus:ring-2 focus:ring-brand-200 font-mono"
+                      />
+                    </div>
+
+                    <div className="flex gap-3">
+                      <button
+                        type="button"
+                        onClick={handleParseBulk}
+                        className="flex-1 pill-button bg-gray-100 text-gray-700 font-semibold hover:bg-gray-200"
+                      >
+                        Parse & Preview
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleSaveBulk}
+                        disabled={isBulkSaving || bulkQuestions.length === 0 || !selectedExamId}
+                        className="flex-1 pill-button bg-gray-900 text-white font-semibold hover:bg-black disabled:opacity-50"
+                      >
+                        {isBulkSaving ? 'Saving...' : `Save ${bulkQuestions.length} Questions to Bank`}
+                      </button>
+                    </div>
+
+                    {bulkErrors.length > 0 && (
+                      <div className="p-4 bg-red-50 text-red-600 rounded-2xl space-y-1 text-xs">
+                        <div className="font-bold flex items-center gap-1.5 mb-1 text-sm">
+                          <AlertCircle size={15} /> Parsing Errors found:
+                        </div>
+                        <ul className="list-disc pl-4 space-y-1">
+                          {bulkErrors.map((err, idx) => (
+                            <li key={idx}>{err}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="bg-gray-50 border border-gray-100 rounded-2xl p-4 text-xs text-gray-600">
+                      <h4 className="font-bold text-gray-900 mb-2 uppercase tracking-wider">Instructions</h4>
+                      <p className="mb-2 leading-relaxed">Pasted questions must follow a clean block structure, separated by a blank line.</p>
+                      <div className="bg-white p-3 rounded-xl border border-gray-100 font-mono space-y-1 leading-snug">
+                        <p className="text-brand-600">Question: What is 2 + 2?</p>
+                        <p>A) 3</p>
+                        <p>B) 4</p>
+                        <p>C) 5</p>
+                        <p>D) 6</p>
+                        <p className="text-green-600">Answer: B</p>
+                        <p className="text-gray-400">Explanation: Simple addition.</p>
+                      </div>
+                      <p className="mt-2 text-[10px] text-gray-500 leading-relaxed">
+                        The options should start with <strong>A)</strong>, <strong>B)</strong>, etc. The <strong>Answer</strong> can be the letter (e.g. B) or the option content itself.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {bulkQuestions.length > 0 && (
+                  <div className="mt-8 space-y-4">
+                    <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider ml-1">Parsed Questions Preview</h3>
+                    <div className="grid md:grid-cols-2 gap-4 max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar">
+                      {bulkQuestions.map((q, idx) => (
+                        <div key={idx} className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm relative">
+                          <span className="absolute top-3 right-3 text-[10px] font-bold text-gray-400 bg-gray-50 px-2 py-0.5 rounded-full">
+                            #{idx + 1}
+                          </span>
+                          <h4 className="text-xs font-bold text-gray-900 mb-3 pr-8 leading-snug">{q.question}</h4>
+                          <div className="space-y-1.5 mb-3">
+                            {q.options.map((opt, oIdx) => {
+                              const isCorrect = opt === q.correctOption;
+                              return (
+                                <div key={oIdx} className={`px-2.5 py-1.5 rounded-lg text-[11px] border ${
+                                  isCorrect ? 'bg-green-50 border-green-200 text-green-700 font-medium' : 'bg-gray-50/50 border-gray-100 text-gray-600'
+                                }`}>
+                                  <strong>{String.fromCharCode(65 + oIdx)})</strong> {opt}
+                                </div>
+                              );
+                            })}
+                          </div>
+                          {q.explanation && (
+                            <div className="bg-amber-50/50 p-2.5 rounded-xl border border-amber-100/50 text-[10px] text-gray-600">
+                              <strong>Explanation:</strong> {q.explanation}
+                            </div>
+                          )}
+                        </div>
+                      ))}
                     </div>
                   </div>
                 )}
