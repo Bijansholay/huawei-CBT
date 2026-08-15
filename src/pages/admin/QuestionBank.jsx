@@ -84,17 +84,19 @@ function parseBulkQuestions(text) {
     let correctOption = '';
     if (correctOptionRaw) {
       const upperRaw = correctOptionRaw.toUpperCase();
-      if (optionsMap[upperRaw]) {
-        correctOption = optionsMap[upperRaw];
+      if (['A', 'B', 'C', 'D'].includes(upperRaw) && optionsMap[upperRaw]) {
+        correctOption = upperRaw;
       } else {
-        const matchedOpt = options.find(opt => opt.toLowerCase() === correctOptionRaw.toLowerCase());
-        if (matchedOpt) {
-          correctOption = matchedOpt;
+        const foundLabel = Object.keys(optionsMap).find(
+          label => optionsMap[label].toLowerCase() === correctOptionRaw.toLowerCase()
+        );
+        if (foundLabel) {
+          correctOption = foundLabel;
         } else {
           if (upperRaw.length === 1 && ['A', 'B', 'C', 'D'].includes(upperRaw)) {
-            correctOption = optionsMap[upperRaw] || '';
+            correctOption = upperRaw;
           } else {
-            correctOption = correctOptionRaw;
+            correctOption = upperRaw.substring(0, 10);
           }
         }
       }
@@ -298,11 +300,24 @@ export default function QuestionBank() {
       if (options.length < 2) throw new Error('Add at least two answer options');
       if (!questionForm.correctOption.trim()) throw new Error('Correct answer is required');
 
+      let correctOption = questionForm.correctOption.trim();
+      const upperCorrect = correctOption.toUpperCase();
+      if (!['A', 'B', 'C', 'D'].includes(upperCorrect)) {
+        const foundIndex = options.findIndex(opt => opt.toLowerCase() === correctOption.toLowerCase());
+        if (foundIndex !== -1) {
+          correctOption = String.fromCharCode(65 + foundIndex);
+        } else {
+          correctOption = correctOption.substring(0, 10);
+        }
+      } else {
+        correctOption = upperCorrect;
+      }
+
       const payload = {
         examId: questionForm.examId,
         question: questionForm.question.trim(),
         options,
-        correctOption: questionForm.correctOption.trim(),
+        correctOption,
         explanation: questionForm.explanation.trim()
       };
 
@@ -905,7 +920,7 @@ export default function QuestionBank() {
                       value={questionForm.correctOption}
                       onChange={(event) => setQuestionForm({ ...questionForm, correctOption: event.target.value })}
                       className="w-full px-4 py-2.5 bg-gray-50 border-none rounded-2xl text-sm focus:ring-2 focus:ring-brand-200 outline-none text-gray-900"
-                      placeholder="Must match one option exactly"
+                      placeholder="Enter option label (e.g. A, B, C, D)"
                     />
                   </div>
                   <div className="md:col-span-2">
