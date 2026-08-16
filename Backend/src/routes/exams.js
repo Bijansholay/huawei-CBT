@@ -201,6 +201,14 @@ router.post("/:examId/submit", authenticate, requireRole("student"), asyncHandle
     const correctLabel = resolveAnswerLabels(question?.correctOption || question?.correct_option, options);
     const selectedLabel = resolveAnswerLabels(selected, options);
     const isCorrect = question ? (correctLabel && selectedLabel && correctLabel === selectedLabel) : false;
+    
+    console.log(`[SUBMIT DEBUG] Question ID: ${question?.id || answer.questionId}`);
+    console.log(`[SUBMIT DEBUG] Raw Correct Option: "${question?.correctOption || question?.correct_option}"`);
+    console.log(`[SUBMIT DEBUG] Raw Selected Option: "${selected}"`);
+    console.log(`[SUBMIT DEBUG] Resolved Correct Label: "${correctLabel}"`);
+    console.log(`[SUBMIT DEBUG] Resolved Selected Label: "${selectedLabel}"`);
+    console.log(`[SUBMIT DEBUG] isCorrect: ${isCorrect}`);
+
     if (isCorrect) score += 1;
 
     try {
