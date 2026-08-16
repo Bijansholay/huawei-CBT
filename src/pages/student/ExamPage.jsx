@@ -263,7 +263,20 @@ export default function ExamPage() {
 
   const handleAnswerChange = (val) => {
     if (!currentQ) return;
-    saveAnswer(currentQ.id, val);
+    const isMultiple = String(currentQ?.questionType || currentQ?.question_type).toLowerCase() === 'multiple';
+    if (isMultiple) {
+      const currentAnswer = String(answers[currentQ.id] || '');
+      let selectedLabels = currentAnswer ? currentAnswer.split(',') : [];
+      if (selectedLabels.includes(val)) {
+        selectedLabels = selectedLabels.filter(item => item !== val);
+      } else {
+        selectedLabels.push(val);
+        selectedLabels.sort();
+      }
+      saveAnswer(currentQ.id, selectedLabels.join(','));
+    } else {
+      saveAnswer(currentQ.id, val);
+    }
   };
 
   const toggleFlag = () => {
@@ -421,7 +434,10 @@ export default function ExamPage() {
 
                 <div className="space-y-2.5">
                   {currentOptions.map((opt, i) => {
-                    const isChecked = answers[currentQ.id] === opt.label;
+                    const isMultiple = String(currentQ?.questionType || currentQ?.question_type).toLowerCase() === 'multiple';
+                    const currentAnswer = String(answers[currentQ.id] || '');
+                    const selectedLabels = currentAnswer ? currentAnswer.split(',') : [];
+                    const isChecked = selectedLabels.includes(opt.label);
 
                     return (
                       <label key={i} className={`flex items-center p-3 rounded-xl border cursor-pointer transition-all ${
@@ -429,12 +445,27 @@ export default function ExamPage() {
                           ? 'border-brand-400 bg-brand-50/50 shadow-sm'
                           : 'border-gray-100 bg-gray-50/50 hover:bg-gray-100'
                       }`}>
-                        <div className={`w-4 h-4 flex-shrink-0 rounded-full border flex items-center justify-center mr-3 transition-colors ${
-                          isChecked ? 'border-brand-500' : 'border-gray-300'
+                        <div className={`w-4 h-4 flex-shrink-0 border flex items-center justify-center mr-3 transition-colors ${
+                          isMultiple ? 'rounded-[4px]' : 'rounded-full'
+                        } ${
+                          isChecked ? 'border-brand-500 bg-brand-500 text-white' : 'border-gray-300 bg-transparent'
                         }`}>
-                          {isChecked && <div className="w-2 h-2 bg-brand-500 rounded-full" />}
+                          {isChecked && (
+                            isMultiple ? (
+                              <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                              </svg>
+                            ) : (
+                              <div className="w-1.5 h-1.5 bg-white rounded-full" />
+                            )
+                          )}
                         </div>
-                        <input type="radio" className="hidden" checked={isChecked} onChange={() => handleAnswerChange(opt.label)} />
+                        <input
+                          type={isMultiple ? 'checkbox' : 'radio'}
+                          className="hidden"
+                          checked={isChecked}
+                          onChange={() => handleAnswerChange(opt.label)}
+                        />
                         <span className="text-gray-800 text-sm font-medium leading-snug">{opt.text}</span>
                       </label>
                     );

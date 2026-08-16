@@ -22,7 +22,10 @@ function normalizeOptions(options) {
       }
 
       return { label: OPTION_LABELS[index] || String(index + 1), text: String(option ?? "") };
-    }).filter((option) => option.text !== "");
+    }).filter((option) => {
+      const clean = option.text.trim().toLowerCase();
+      return clean !== "" && clean !== "not applicable" && clean !== "n/a";
+    });
   }
 
   if (options && typeof options === "object") {

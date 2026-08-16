@@ -231,8 +231,10 @@ export default function ResultPage() {
 
                       <div className="grid sm:grid-cols-2 gap-2 mb-4">
                         {item.options.map((opt) => {
-                          const isSelected = item.selectedOption === opt.label;
-                          const isCorrectOpt = item.correctOption === opt.label;
+                          const selectedLabels = String(item.selectedOption || '').split(',');
+                          const correctLabels = String(item.correctOption || '').split(',');
+                          const isSelected = selectedLabels.includes(opt.label);
+                          const isCorrectOpt = correctLabels.includes(opt.label);
 
                           let optClass = 'bg-gray-50/50 border-gray-100 text-gray-600';
                           if (isCorrectOpt) {
