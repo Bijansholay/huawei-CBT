@@ -51,6 +51,7 @@ function parseBulkQuestions(text) {
     const optionsMap = {};
     let correctOptionRaw = '';
     let explanationText = '';
+    let parsedType = '';
 
     for (const line of lines) {
       if (line.match(/^(Question:|Q:)/i)) {
@@ -64,6 +65,15 @@ function parseBulkQuestions(text) {
         correctOptionRaw = line.replace(/^(Answer|Correct|Correct Answer|Correct Option|Ans)[:\s-]+\s*/i, '').trim();
       } else if (line.match(/^(Explanation|Explanations|Answer Explanation|Answer Explanations|Exp)[:\s-]+\s*/i)) {
         explanationText = line.replace(/^(Explanation|Explanations|Answer Explanation|Answer Explanations|Exp)[:\s-]+\s*/i, '').trim();
+      } else if (line.match(/^(Type|Question Type|QType)[:\s-]+\s*(.*)/i)) {
+        const typeMatch = line.match(/^(Type|Question Type|QType)[:\s-]+\s*(.*)/i)[2].trim().toLowerCase();
+        if (typeMatch.includes('multiple') || typeMatch.includes('multi')) {
+          parsedType = 'multiple';
+        } else if (typeMatch.includes('true') || typeMatch.includes('false') || typeMatch.includes('t/f') || typeMatch.includes('tf')) {
+          parsedType = 'trueFalse';
+        } else if (typeMatch.includes('single') || typeMatch.includes('mcq') || typeMatch.includes('one')) {
+          parsedType = 'single';
+        }
       } else {
         if (!questionText) {
           questionText = line;
@@ -81,22 +91,53 @@ function parseBulkQuestions(text) {
 
     const options = Object.keys(optionsMap).sort().map(k => optionsMap[k]);
     
+    // Auto-detect question type
+    let questionType = parsedType;
+    if (!questionType) {
+      const isTF = options.length === 2 && 
+                   options[0].toLowerCase() === 'true' && 
+                   options[1].toLowerCase() === 'false';
+      
+      const isMultiAnswer = correctOptionRaw && 
+                            (correctOptionRaw.match(/[A-D]\s*,\s*[A-D]/i) || 
+                             correctOptionRaw.match(/[A-D]\s*and\s*[A-D]/i) ||
+                             correctOptionRaw.trim().length > 1 && !optionsMap[correctOptionRaw.toUpperCase()]);
+      
+      if (isTF) {
+        questionType = 'trueFalse';
+      } else if (isMultiAnswer) {
+        questionType = 'multiple';
+      } else {
+        questionType = 'single';
+      }
+    }
+    
+    // Resolve correctOption(s) to labels. Comma-separated for multiple.
     let correctOption = '';
     if (correctOptionRaw) {
-      const upperRaw = correctOptionRaw.toUpperCase();
-      if (['A', 'B', 'C', 'D'].includes(upperRaw) && optionsMap[upperRaw]) {
-        correctOption = upperRaw;
-      } else {
-        const foundLabel = Object.keys(optionsMap).find(
-          label => optionsMap[label].toLowerCase() === correctOptionRaw.toLowerCase()
-        );
-        if (foundLabel) {
-          correctOption = foundLabel;
+      if (questionType === 'multiple') {
+        const matchedLabels = correctOptionRaw.match(/[A-D]/ig);
+        if (matchedLabels && matchedLabels.length > 0) {
+          correctOption = matchedLabels.map(l => l.toUpperCase()).join(',');
         } else {
-          if (upperRaw.length === 1 && ['A', 'B', 'C', 'D'].includes(upperRaw)) {
-            correctOption = upperRaw;
+          correctOption = correctOptionRaw.substring(0, 10);
+        }
+      } else {
+        const upperRaw = correctOptionRaw.toUpperCase();
+        if (['A', 'B', 'C', 'D'].includes(upperRaw) && optionsMap[upperRaw]) {
+          correctOption = upperRaw;
+        } else {
+          const foundLabel = Object.keys(optionsMap).find(
+            label => optionsMap[label].toLowerCase() === correctOptionRaw.toLowerCase()
+          );
+          if (foundLabel) {
+            correctOption = foundLabel;
           } else {
-            correctOption = upperRaw.substring(0, 10);
+            if (upperRaw.length === 1 && ['A', 'B', 'C', 'D'].includes(upperRaw)) {
+              correctOption = upperRaw;
+            } else {
+              correctOption = upperRaw.substring(0, 10);
+            }
           }
         }
       }
@@ -119,7 +160,8 @@ function parseBulkQuestions(text) {
       question: questionText,
       options,
       correctOption,
-      explanation: explanationText
+      explanation: explanationText,
+      questionType
     });
   }
 
@@ -387,7 +429,8 @@ export default function QuestionBank() {
           question: q.question,
           options: q.options,
           correctOption: q.correctOption,
-          explanation: q.explanation
+          explanation: q.explanation,
+          questionType: q.questionType
         });
         savedCount++;
       }
@@ -760,7 +803,10 @@ export default function QuestionBank() {
                     <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider ml-1">Parsed Questions Preview</h3>
                     <div className="grid md:grid-cols-2 gap-4 max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar">
                       {bulkQuestions.map((q, idx) => (
-                        <div key={idx} className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm relative">
+                        <div key={idx} className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm relative pt-10">
+                          <span className="absolute top-3 left-3 px-2 py-0.5 bg-gray-50 text-gray-500 rounded text-[9px] font-bold uppercase tracking-wider border border-gray-100">
+                            {q.questionType === 'single' ? 'Single Choice' : q.questionType === 'multiple' ? 'Multiple Choice' : 'True/False'}
+                          </span>
                           <span className="absolute top-3 right-3 text-[10px] font-bold text-gray-400 bg-gray-50 px-2 py-0.5 rounded-full">
                             #{idx + 1}
                           </span>

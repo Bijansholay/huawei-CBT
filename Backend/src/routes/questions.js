@@ -28,7 +28,18 @@ router.get("/", (req, res) => {
 });
 
 router.post("/", asyncHandler(async (req, res) => {
-  const { examId, exam_id, question, options, correctOption, correct_option, explanation } = req.body;
+  const {
+    examId,
+    exam_id,
+    question,
+    options,
+    correctOption,
+    correct_option,
+    explanation,
+    questionType,
+    question_type,
+    difficulty
+  } = req.body;
   const exam = store.collection("exams").find((item) => item.id === (examId || exam_id));
   if (!exam) return fail(res, 404, "Exam not found");
   if (!question || !options || !correctOption && !correct_option) {
@@ -42,7 +53,10 @@ router.post("/", asyncHandler(async (req, res) => {
     options,
     correctOption: correctOption || correct_option,
     correct_option: correctOption || correct_option,
-    explanation: explanation || ""
+    explanation: explanation || "",
+    questionType: questionType || question_type || "single",
+    question_type: questionType || question_type || "single",
+    difficulty: difficulty || "medium"
   });
 
   return created(res, { question: item }, "Question created");
@@ -124,9 +138,13 @@ router.put("/:id", asyncHandler(async (req, res) => {
   if (!question) return fail(res, 404, "Question not found");
 
   const patch = {};
-  ["question", "options", "explanation"].forEach((field) => {
+  ["question", "options", "explanation", "questionType", "question_type", "difficulty"].forEach((field) => {
     if (req.body[field] !== undefined) patch[field] = req.body[field];
   });
+  if (req.body.questionType || req.body.question_type) {
+    patch.questionType = req.body.questionType || req.body.question_type;
+    patch.question_type = patch.questionType;
+  }
   if (req.body.correctOption || req.body.correct_option) {
     patch.correctOption = req.body.correctOption || req.body.correct_option;
     patch.correct_option = patch.correctOption;

@@ -54,6 +54,15 @@ router.get("/exams", (req, res) => {
   return ok(res, { exams });
 });
 
+function shuffle(array) {
+  const copy = [...array];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
+
 router.get("/exams/:id", (req, res) => {
   const exam = getEnrolledExam(req.params.id, req.user.id);
   if (!exam) return fail(res, 404, "Exam not found or not enrolled");
@@ -61,18 +70,69 @@ router.get("/exams/:id", (req, res) => {
   const allQuestions = store.collection("questions")
     .filter((item) => item.examId === exam.id);
 
-  // Fisher-Yates Shuffle
-  const shuffled = [...allQuestions];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  const limit = Math.max(0, Number(exam.totalQuestions || exam.total_questions || allQuestions.length));
+
+  // Separate questions by type
+  const singleQuestions = [];
+  const multipleQuestions = [];
+  const trueFalseQuestions = [];
+
+  for (const q of allQuestions) {
+    const type = String(q.questionType || q.question_type || "single").toLowerCase();
+    if (type === "single" || type === "mcq") {
+      singleQuestions.push(q);
+    } else if (type === "multiple") {
+      multipleQuestions.push(q);
+    } else {
+      trueFalseQuestions.push(q);
+    }
   }
 
-  // Peg to totalQuestions limit
-  const limit = Math.max(0, Number(exam.totalQuestions || exam.total_questions || shuffled.length));
-  const sliced = shuffled.slice(0, limit);
+  // Shuffle each pool
+  const shuffledSingle = shuffle(singleQuestions);
+  const shuffledMultiple = shuffle(multipleQuestions);
+  const shuffledTrueFalse = shuffle(trueFalseQuestions);
 
-  const clientQuestions = sliced.map(({ correctOption, correct_option, ...question }) => normalizeStudentQuestion(question));
+  // Targets:
+  // Single choice: 37.5% (approx 35% to 40%)
+  // Multiple choice: 32.5% (approx 30% to 35%)
+  // True/False: 30% (approx 25% to 35%)
+  const targetSingle = Math.round(limit * 0.375);
+  const targetMultiple = Math.round(limit * 0.325);
+  const targetTrueFalse = Math.max(0, limit - targetSingle - targetMultiple);
+
+  let selectedSingle = shuffledSingle.slice(0, targetSingle);
+  let selectedMultiple = shuffledMultiple.slice(0, targetMultiple);
+  let selectedTrueFalse = shuffledTrueFalse.slice(0, targetTrueFalse);
+
+  let currentTotal = selectedSingle.length + selectedMultiple.length + selectedTrueFalse.length;
+
+  if (currentTotal < limit) {
+    // Fill deficit from remaining unselected questions from all pools
+    const remainingSingle = shuffledSingle.slice(targetSingle);
+    const remainingMultiple = shuffledMultiple.slice(targetMultiple);
+    const remainingTrueFalse = shuffledTrueFalse.slice(targetTrueFalse);
+
+    const backupPool = shuffle([...remainingSingle, ...remainingMultiple, ...remainingTrueFalse]);
+    const needed = limit - currentTotal;
+    const extra = backupPool.slice(0, needed);
+
+    for (const q of extra) {
+      const type = String(q.questionType || q.question_type || "single").toLowerCase();
+      if (type === "single" || type === "mcq") {
+        selectedSingle.push(q);
+      } else if (type === "multiple") {
+        selectedMultiple.push(q);
+      } else {
+        selectedTrueFalse.push(q);
+      }
+    }
+  }
+
+  // Group in order: Single Choice, then Multiple Choice, then True/False
+  const orderedQuestions = [...selectedSingle, ...selectedMultiple, ...selectedTrueFalse];
+
+  const clientQuestions = orderedQuestions.map(({ correctOption, correct_option, ...question }) => normalizeStudentQuestion(question));
 
   return ok(res, { exam, questions: clientQuestions });
 });
