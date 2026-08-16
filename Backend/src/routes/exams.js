@@ -54,6 +54,16 @@ function resolveOptionLabel(value, options) {
   return upperTarget;
 }
 
+function resolveAnswerLabels(value, options) {
+  if (value === undefined || value === null) return "";
+  const items = String(value)
+    .split(",")
+    .map(s => s.trim())
+    .filter(Boolean);
+  const resolved = items.map(item => resolveOptionLabel(item, options));
+  return resolved.filter(Boolean).sort().join(",");
+}
+
 router.get("/", authenticate, requireRole("admin"), (req, res) => {
   return ok(res, { exams: store.collection("exams") });
 });
@@ -188,11 +198,9 @@ router.post("/:examId/submit", authenticate, requireRole("student"), asyncHandle
     const question = questions.find((item) => item.id === answer.questionId || item.id === answer.question_id);
     const selected = answer.selectedOption || answer.selected_option || answer.answer;
     const options = normalizeOptions(question?.options);
-    const correctLabel = resolveOptionLabel(question?.correctOption || question?.correct_option, options);
-    const selectedLabel = resolveOptionLabel(selected, options);
-    const isCorrect = question
-      ? (correctLabel && selectedLabel ? correctLabel === selectedLabel : String(question.correctOption || question.correct_option || "").trim().toLowerCase() === String(selected || "").trim().toLowerCase())
-      : false;
+    const correctLabel = resolveAnswerLabels(question?.correctOption || question?.correct_option, options);
+    const selectedLabel = resolveAnswerLabels(selected, options);
+    const isCorrect = question ? (correctLabel && selectedLabel && correctLabel === selectedLabel) : false;
     if (isCorrect) score += 1;
 
     try {

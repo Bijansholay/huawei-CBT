@@ -258,6 +258,16 @@ function resolveOptionLabel(value, options) {
   return upperTarget;
 }
 
+function resolveAnswerLabels(value, options) {
+  if (value === undefined || value === null) return "";
+  const items = String(value)
+    .split(",")
+    .map(s => s.trim())
+    .filter(Boolean);
+  const resolved = items.map(item => resolveOptionLabel(item, options));
+  return resolved.filter(Boolean).sort().join(",");
+}
+
 // GET /exams/:id/review - review the most recent completed session for the current student
 router.get('/exams/:id/review', (req, res) => {
   const exam = getEnrolledExam(req.params.id, req.user.id);
@@ -275,8 +285,8 @@ router.get('/exams/:id/review', (req, res) => {
   const review = answers.map((ans) => {
     const question = store.collection('questions').find((q) => q.id === ans.questionId || q.id === ans.question_id);
     const options = normalizeOptions(question?.options);
-    const correctLabel = resolveOptionLabel(question?.correctOption || question?.correct_option, options);
-    const selectedLabel = resolveOptionLabel(ans.selectedOption || ans.selected_option, options);
+    const correctLabel = resolveAnswerLabels(question?.correctOption || question?.correct_option, options);
+    const selectedLabel = resolveAnswerLabels(ans.selectedOption || ans.selected_option, options);
 
     return {
       questionId: question ? question.id : ans.questionId || ans.question_id,
