@@ -13,7 +13,10 @@ function normalizeOptions(options) {
         ? option
         : String(option?.text || option?.value || option?.optionText || option?.label || '');
       return { label, text };
-    }).filter((option) => option.text !== '');
+    }).filter((option) => {
+      const clean = option.text.trim().toLowerCase();
+      return clean !== '' && clean !== 'not applicable' && clean !== 'n/a';
+    });
   }
 
   if (options && typeof options === 'object') {
