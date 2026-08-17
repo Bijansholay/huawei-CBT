@@ -42,6 +42,19 @@ function resolveOptionLabel(value, options) {
   if (value === undefined || value === null) return "";
   const target = String(value).trim();
   if (!target) return "";
+
+  // 1. Extract from prefix like "ANSWER: B", "Correct Option: B", etc.
+  const prefixMatch = target.match(/(?:Answer|Correct|Correct Answer|Correct Option|Ans)[:\s-]+\s*([A-D])/i);
+  if (prefixMatch) {
+    return prefixMatch[1].toUpperCase();
+  }
+
+  // 2. Clean brackets e.g. "(B)", "[B]", "B.", "B)"
+  const cleanTarget = target.replace(/^[\(\[\{]?([A-D])[\)\]\.]?$/i, "$1").toUpperCase();
+  if (["A", "B", "C", "D"].includes(cleanTarget)) {
+    return cleanTarget;
+  }
+
   const normalizedTarget = target.toLowerCase();
   const upperTarget = target.toUpperCase();
 

@@ -221,7 +221,26 @@ async function persistDelete(name, id) {
   saveFile();
 }
 
+function sanitizeQuestionRecord(record) {
+  const rawVal = record.correctOption ?? record.correct_option;
+  if (rawVal !== undefined && rawVal !== null) {
+    let val = String(rawVal).trim().toUpperCase();
+    const match = val.match(/(?:Answer|Correct|Correct Answer|Correct Option|Ans)[:\s-]+\s*([A-D])/i);
+    if (match) {
+      val = match[1].toUpperCase();
+    } else {
+      const letterMatch = val.match(/[A-D]/i);
+      val = letterMatch ? letterMatch[0].toUpperCase() : "A";
+    }
+    record.correctOption = val;
+    record.correct_option = val;
+  }
+}
+
 async function insert(name, record) {
+  if (name === "questions") {
+    sanitizeQuestionRecord(record);
+  }
   const item = {
     id: record.id || uuid(),
     ...record,
@@ -234,6 +253,9 @@ async function insert(name, record) {
 }
 
 async function update(name, id, patch) {
+  if (name === "questions") {
+    sanitizeQuestionRecord(patch);
+  }
   const item = state[name].find((record) => record.id === id);
   if (!item) return null;
   Object.assign(item, patch, { updatedAt: now() });
