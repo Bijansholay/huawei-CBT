@@ -153,6 +153,21 @@ router.put("/:id", asyncHandler(async (req, res) => {
   return ok(res, { question: await store.update("questions", req.params.id, patch) }, "Question updated");
 }));
 
+router.post("/delete-bulk", asyncHandler(async (req, res) => {
+  const { ids } = req.body;
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return fail(res, 400, "ids must be a non-empty array");
+  }
+
+  let deletedCount = 0;
+  for (const id of ids) {
+    const deleted = await store.remove("questions", id);
+    if (deleted) deletedCount++;
+  }
+
+  return ok(res, { deletedCount }, `${deletedCount} questions deleted successfully`);
+}));
+
 router.delete("/:id", asyncHandler(async (req, res) => {
   const deleted = await store.remove("questions", req.params.id);
   if (!deleted) return fail(res, 404, "Question not found");

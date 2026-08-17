@@ -204,6 +204,14 @@ export async function deleteQuestion(questionId) {
   return result.data;
 }
 
+export async function deleteQuestionsBulk(questionIds) {
+  const result = await apiFetch('/questions/delete-bulk', {
+    method: 'POST',
+    body: JSON.stringify({ ids: questionIds })
+  });
+  return result.data;
+}
+
 export async function generateQuestions(pdfId, count = 10, difficulty = 'medium', options = {}) {
   const result = await apiFetch('/questions/generate', {
     method: 'POST',

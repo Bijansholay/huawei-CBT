@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   createQuestion,
   deleteQuestion,
+  deleteQuestionsBulk,
   generateQuestionsFromFile,
   listExams,
   listQuestions,
@@ -196,6 +197,8 @@ export default function QuestionBank() {
   const [bulkErrors, setBulkErrors] = useState([]);
   const [isBulkSaving, setIsBulkSaving] = useState(false);
 
+  const [selectedIds, setSelectedIds] = useState(new Set());
+
   const totalTypes = typeCounts.single + typeCounts.multiple + typeCounts.trueFalse;
   const totalDiffs = counts.easy + counts.medium + counts.hard;
   const sumsMatch = totalTypes === totalDiffs;
@@ -207,6 +210,7 @@ export default function QuestionBank() {
   const loadData = async () => {
     setIsLoading(true);
     setError(null);
+    setSelectedIds(new Set());
     try {
       const [questionData, examData] = await Promise.all([
         listQuestions(),
@@ -381,8 +385,68 @@ export default function QuestionBank() {
     }
   };
 
+  const handleToggleSelect = (id) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const allSelected = filteredQuestions.length > 0 && filteredQuestions.every(q => selectedIds.has(q.id));
+
+  const handleToggleSelectAll = () => {
+    if (allSelected) {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        filteredQuestions.forEach(q => next.delete(q.id));
+        return next;
+      });
+    } else {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        filteredQuestions.forEach(q => next.add(q.id));
+        return next;
+      });
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    if (!window.confirm(`Are you sure you want to delete the ${selectedIds.size} selected questions?`)) {
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+    setSuccessMessage('');
+    try {
+      await deleteQuestionsBulk(Array.from(selectedIds));
+      setSuccessMessage(`Successfully deleted ${selectedIds.size} questions.`);
+      await loadData();
+    } catch (err) {
+      // Fallback one-by-one delete in case backend update fails or hasn't deployed
+      try {
+        const ids = Array.from(selectedIds);
+        for (const id of ids) {
+          await deleteQuestion(id);
+        }
+        setSuccessMessage(`Successfully deleted ${ids.length} questions.`);
+        await loadData();
+      } catch (fallbackErr) {
+        setError(fallbackErr.message || 'Failed to delete selected questions.');
+        await loadData();
+      }
+    }
+  };
+
   const handleDeleteQuestion = async (questionId) => {
     setError(null);
+    if (!window.confirm('Are you sure you want to delete this question?')) return;
     try {
       await deleteQuestion(questionId);
       setSuccessMessage('Question deleted successfully.');
@@ -876,50 +940,92 @@ export default function QuestionBank() {
           </button>
         </div>
 
+        {/* Bulk action selection header */}
+        {!isLoading && filteredQuestions.length > 0 && (
+          <div className="px-4 py-3 bg-gray-50/85 border-b border-gray-50 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                checked={allSelected}
+                onChange={handleToggleSelectAll}
+                className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 cursor-pointer"
+              />
+              <span className="text-xs font-semibold text-gray-500">
+                {selectedIds.size > 0 ? `${selectedIds.size} selected` : 'Select all matching'}
+              </span>
+            </div>
+            {selectedIds.size > 0 && (
+              <button
+                type="button"
+                onClick={handleBulkDelete}
+                className="text-xs font-bold text-red-600 hover:text-red-700 flex items-center gap-1.5 transition-colors px-3 py-1 bg-red-50 rounded-full hover:bg-red-100/50"
+              >
+                <Trash2 size={13} /> Delete Selected
+              </button>
+            )}
+          </div>
+        )}
+
         <div className="divide-y divide-gray-50">
           {isLoading ? (
             <div className="p-6 text-sm text-gray-500">Loading questions...</div>
           ) : filteredQuestions.length === 0 ? (
             <div className="p-6 text-sm text-gray-500">No questions found.</div>
           ) : (
-            filteredQuestions.map((question) => (
-              <div key={question.id} className="p-4 flex items-start justify-between gap-4 hover:bg-gray-50/50">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap gap-2 mb-1">
-                    <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-[10px] font-bold">
-                      {question.questionType || question.question_type || 'MCQ'}
-                    </span>
-                    <span className="px-2 py-0.5 bg-green-50 text-green-600 rounded text-[10px] font-bold">
-                      {question.difficulty || 'Unspecified'}
-                    </span>
-                    <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded text-[10px] font-bold">
-                      {examMap.get(question.examId || question.exam_id)?.title || 'No exam'}
-                    </span>
+            filteredQuestions.map((question) => {
+              const isSelected = selectedIds.has(question.id);
+              return (
+                <div
+                  key={question.id}
+                  className={`p-4 flex items-start justify-between gap-4 hover:bg-gray-50/50 transition-colors ${
+                    isSelected ? 'bg-brand-50/10' : ''
+                  }`}
+                >
+                  <div className="flex items-start gap-3 min-w-0">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => handleToggleSelect(question.id)}
+                      className="mt-1 h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 cursor-pointer flex-shrink-0"
+                    />
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap gap-2 mb-1">
+                        <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-[10px] font-bold">
+                          {question.questionType || question.question_type || 'MCQ'}
+                        </span>
+                        <span className="px-2 py-0.5 bg-green-50 text-green-600 rounded text-[10px] font-bold">
+                          {question.difficulty || 'Unspecified'}
+                        </span>
+                        <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded text-[10px] font-bold">
+                          {examMap.get(question.examId || question.exam_id)?.title || 'No exam'}
+                        </span>
+                      </div>
+                      <p className="text-sm font-medium text-gray-900 break-words">
+                        {question.question || question.question_text}
+                      </p>
+                    </div>
                   </div>
-                  <p className="text-sm font-medium text-gray-900 break-words">
-                    {question.question || question.question_text}
-                  </p>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => openEditForm(question)}
+                      className="p-2 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                      title="Edit question"
+                    >
+                      <Pencil size={15} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteQuestion(question.id)}
+                      className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      title="Delete question"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1 flex-shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => openEditForm(question)}
-                    className="p-2 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-                    title="Edit question"
-                  >
-                    <Pencil size={15} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteQuestion(question.id)}
-                    className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                    title="Delete question"
-                  >
-                    <Trash2 size={15} />
-                  </button>
-                </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>

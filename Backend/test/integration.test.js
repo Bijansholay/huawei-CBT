@@ -198,6 +198,31 @@ test("frontend integration API flow", async () => {
     const deleteQuestion = await request(baseUrl, "DELETE", `/api/questions/${tempQuestionId}`, null, adminToken);
     assert.equal(deleteQuestion.response.status, 200);
 
+    // Bulk deletion test
+    const bulkQ1 = await request(baseUrl, "POST", "/api/questions", {
+      examId,
+      question: "Bulk Q 1",
+      options: ["Yes", "No"],
+      correctOption: "Yes"
+    }, adminToken);
+    const bulkQ2 = await request(baseUrl, "POST", "/api/questions", {
+      examId,
+      question: "Bulk Q 2",
+      options: ["Yes", "No"],
+      correctOption: "Yes"
+    }, adminToken);
+    assert.equal(bulkQ1.response.status, 201);
+    assert.equal(bulkQ2.response.status, 201);
+
+    const bulkQ1Id = bulkQ1.json.data.question.id;
+    const bulkQ2Id = bulkQ2.json.data.question.id;
+
+    const bulkDelete = await request(baseUrl, "POST", "/api/questions/delete-bulk", {
+      ids: [bulkQ1Id, bulkQ2Id]
+    }, adminToken);
+    assert.equal(bulkDelete.response.status, 200);
+    assert.equal(bulkDelete.json.data.deletedCount, 2);
+
     const enroll = await request(baseUrl, "POST", `/api/exams/${examId}/enroll`, {
       studentIds: [studentId]
     }, adminToken);
