@@ -110,8 +110,12 @@ function toDbRecord(name, record) {
   };
 
   for (const [camel, snake] of Object.entries(mappings)) {
-    if (item[camel] !== undefined) item[snake] = item[camel];
-    delete item[camel];
+    if (item[camel] !== undefined) {
+      item[snake] = item[camel];
+    }
+    if (camel !== snake) {
+      delete item[camel];
+    }
   }
 
   delete item.deleted;
