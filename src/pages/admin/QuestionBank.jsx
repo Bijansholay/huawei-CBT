@@ -226,7 +226,8 @@ export default function QuestionBank() {
   }, []);
 
   const filteredQuestions = questions.filter((question) => {
-    const text = `${question.question || question.question_text || ''} ${question.correctOption || ''}`.toLowerCase();
+    const examTitle = examMap.get(question.examId || question.exam_id)?.title || '';
+    const text = `${question.question || question.question_text || ''} ${question.correctOption || ''} ${examTitle}`.toLowerCase();
     return text.includes(search.toLowerCase());
   });
 
