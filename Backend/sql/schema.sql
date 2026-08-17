@@ -42,6 +42,8 @@ CREATE TABLE IF NOT EXISTS exam_enrollments (
   exam_id UUID NOT NULL REFERENCES exams(id) ON DELETE CASCADE,
   student_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   enrolled_at TIMESTAMP DEFAULT NOW(),
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW(),
   UNIQUE(exam_id, student_id)
 );
 
@@ -70,7 +72,8 @@ CREATE TABLE IF NOT EXISTS exam_sessions (
   completed_at TIMESTAMP,
   score INTEGER,
   total_questions INTEGER,
-  created_at TIMESTAMP DEFAULT NOW()
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS exam_answers (
@@ -93,6 +96,7 @@ CREATE TABLE IF NOT EXISTS exam_violations (
   occurred_at TIMESTAMP NOT NULL,
   fullscreen_active BOOLEAN DEFAULT FALSE,
   visibility_state VARCHAR(50),
+  high_resolution_timestamp DOUBLE PRECISION,
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()
 );

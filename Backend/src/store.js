@@ -58,7 +58,6 @@ function camelizeRecord(record) {
     enrolledAt: record.enrolled_at ?? record.enrolledAt,
     startedAt: record.started_at ?? record.startedAt,
     completedAt: record.completed_at ?? record.completedAt,
-    sessionId: record.session_id ?? record.sessionId,
     questionId: record.question_id ?? record.questionId,
     selectedOption: record.selected_option ?? record.selectedOption,
     isCorrect: record.is_correct ?? record.isCorrect,
@@ -66,7 +65,12 @@ function camelizeRecord(record) {
     questionType: record.question_type ?? record.questionType,
     originalName: record.original_name ?? record.originalName,
     mimeType: record.mime_type ?? record.mimeType,
-    uploadedBy: record.uploaded_by ?? record.uploadedBy
+    uploadedBy: record.uploaded_by ?? record.uploadedBy,
+    eventType: record.event_type ?? record.eventType,
+    strikeCount: record.strike_count ?? record.strikeCount,
+    occurredAt: record.occurred_at ?? record.occurredAt,
+    fullscreenActive: record.fullscreen_active ?? record.fullscreenActive,
+    visibilityState: record.visibility_state ?? record.visibilityState
   };
 }
 
@@ -90,7 +94,6 @@ function toDbRecord(name, record) {
     enrolledAt: "enrolled_at",
     startedAt: "started_at",
     completedAt: "completed_at",
-    sessionId: "session_id",
     questionId: "question_id",
     selectedOption: "selected_option",
     isCorrect: "is_correct",
@@ -98,7 +101,12 @@ function toDbRecord(name, record) {
     questionType: "question_type",
     originalName: "original_name",
     mimeType: "mime_type",
-    uploadedBy: "uploaded_by"
+    uploadedBy: "uploaded_by",
+    eventType: "event_type",
+    strikeCount: "strike_count",
+    occurredAt: "occurred_at",
+    fullscreenActive: "fullscreen_active",
+    visibilityState: "visibility_state"
   };
 
   for (const [camel, snake] of Object.entries(mappings)) {

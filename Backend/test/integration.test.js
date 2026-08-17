@@ -12,27 +12,95 @@ process.env.ADMIN_PASSWORD = "admin-password";
 process.env.JWT_SECRET = "test-secret";
 
 const app = require("../src/app");
+const { Readable } = require("node:stream");
+const { ServerResponse } = require("node:http");
+const { Socket } = require("node:net");
 
-function listen() {
-  return new Promise((resolve) => {
-    const server = app.listen(0, "127.0.0.1", () => {
-      const { port } = server.address();
-      resolve({ server, baseUrl: `http://127.0.0.1:${port}` });
+function createMockReq(method, url, headers = {}, body = "") {
+  const req = Readable.from(Buffer.from(body));
+  req.method = method;
+  req.url = url;
+  req.headers = {};
+  for (const [key, value] of Object.entries(headers)) {
+    req.headers[key.toLowerCase()] = value;
+  }
+  return req;
+}
+
+class MockRes extends ServerResponse {
+  constructor(req, callback) {
+    const socket = new Socket();
+    socket.writable = true;
+    socket.write = () => true;
+
+    req.socket = socket;
+    req.connection = socket;
+
+    super(req);
+    this.req = req;
+    this.callback = callback;
+    this.body = Buffer.alloc(0);
+
+    this.write = (chunk, encoding, cb) => {
+      if (chunk) {
+        const buf = typeof chunk === "string" ? Buffer.from(chunk, encoding) : chunk;
+        this.body = Buffer.concat([this.body, buf]);
+      }
+      return true;
+    };
+
+    this.end = (chunk, encoding, cb) => {
+      if (chunk) {
+        const buf = typeof chunk === "string" ? Buffer.from(chunk, encoding) : chunk;
+        this.body = Buffer.concat([this.body, buf]);
+      }
+      const bodyStr = this.body.toString("utf8");
+      let json = null;
+      try {
+        json = JSON.parse(bodyStr);
+      } catch (e) {
+        json = bodyStr;
+      }
+      this.callback(null, {
+        statusCode: this.statusCode,
+        headers: this.getHeaders(),
+        json
+      });
+    };
+  }
+}
+
+function runMockRequest(app, method, pathName, headers = {}, bodyObj = null) {
+  return new Promise((resolve, reject) => {
+    const bodyStr = bodyObj ? JSON.stringify(bodyObj) : "";
+    const reqHeaders = {
+      ...headers,
+      "content-type": "application/json",
+      "content-length": Buffer.byteLength(bodyStr).toString()
+    };
+    const req = createMockReq(method, pathName, reqHeaders, bodyStr);
+    const res = new MockRes(req, (err, result) => {
+      if (err) return reject(err);
+      resolve({
+        response: { status: result.statusCode },
+        json: result.json
+      });
     });
+
+    app(req, res);
   });
 }
 
-async function request(baseUrl, method, pathName, body, token) {
-  const response = await fetch(`${baseUrl}${pathName}`, {
-    method,
-    headers: {
-      "content-type": "application/json",
-      ...(token ? { authorization: `Bearer ${token}` } : {})
-    },
-    body: body ? JSON.stringify(body) : undefined
+function listen() {
+  return Promise.resolve({
+    server: { close() {} },
+    baseUrl: ""
   });
-  const json = await response.json();
-  return { response, json };
+}
+
+function request(baseUrl, method, pathName, body, token) {
+  const headers = token ? { authorization: `Bearer ${token}` } : {};
+  return runMockRequest(app, method, pathName, headers, body);
 }
 
 test("frontend integration API flow", async () => {
@@ -178,5 +246,8 @@ test("frontend integration API flow", async () => {
   } finally {
     server.close();
     if (fs.existsSync(process.env.DATA_FILE)) fs.unlinkSync(process.env.DATA_FILE);
+    if (fs.existsSync(baseUrl)) {
+      try { fs.unlinkSync(baseUrl); } catch (e) {}
+    }
   }
 });
