@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Search, Filter, Download, Eye, CheckCircle2, XCircle } from 'lucide-react';
-import { motion } from 'framer-motion';
-import { getAdminResults } from '../../services/api';
+import { Search, Filter, Download, Eye, CheckCircle2, XCircle, X, Clock, Target, Award } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { getAdminResults, getAdminSessionReview } from '../../services/api';
 
 export default function ResultManagement() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -10,6 +10,32 @@ export default function ResultManagement() {
   const [results, setResults] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+
+  const [selectedSessionId, setSelectedSessionId] = useState(null);
+  const [sessionReview, setSessionReview] = useState(null);
+  const [isReviewLoading, setIsReviewLoading] = useState(false);
+  const [reviewError, setReviewError] = useState('');
+
+  const handleViewDetails = async (sessionId) => {
+    setSelectedSessionId(sessionId);
+    setSessionReview(null);
+    setReviewError('');
+    setIsReviewLoading(true);
+    try {
+      const data = await getAdminSessionReview(sessionId);
+      setSessionReview(data);
+    } catch (err) {
+      setReviewError(err.message || 'Failed to load session review details.');
+    } finally {
+      setIsReviewLoading(false);
+    }
+  };
+
+  const handleCloseModal = () => {
+    setSelectedSessionId(null);
+    setSessionReview(null);
+    setReviewError('');
+  };
 
   useEffect(() => {
     let active = true;
@@ -165,7 +191,10 @@ export default function ResultManagement() {
                       </span>
                     </td>
                     <td className="px-6 py-3 text-right">
-                      <button className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-brand-600 bg-brand-50 hover:bg-brand-100 rounded-lg transition-colors">
+                      <button
+                        onClick={() => handleViewDetails(result.id)}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-brand-600 bg-brand-50 hover:bg-brand-100 rounded-lg transition-colors"
+                      >
                         <Eye size={14} /> View
                       </button>
                     </td>
@@ -187,6 +216,166 @@ export default function ResultManagement() {
           </div>
         </div>
       </div>
+
+      <AnimatePresence>
+        {selectedSessionId && (
+          <div className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-[2rem] shadow-xl w-full max-w-4xl h-[85vh] flex flex-col overflow-hidden"
+            >
+              <div className="px-6 py-5 border-b border-gray-50 flex justify-between items-center flex-shrink-0">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 animate-fade-in">Attempt Breakdown</h3>
+                  <p className="text-xs text-gray-500 font-medium">Detailed question-by-question review</p>
+                </div>
+                <button onClick={handleCloseModal} className="p-1.5 rounded-full text-gray-400 hover:text-gray-950 hover:bg-gray-100 transition-colors">
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto custom-scrollbar p-6 bg-gray-50/50">
+                {isReviewLoading ? (
+                  <div className="h-full flex items-center justify-center text-sm text-gray-500">Loading attempt details...</div>
+                ) : reviewError ? (
+                  <div className="p-5 bg-red-50 text-red-600 rounded-2xl text-sm font-medium">{reviewError}</div>
+                ) : sessionReview ? (
+                  <div className="space-y-6">
+                    {/* Summary Header Card */}
+                    <div className="soft-card p-6 text-center relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6 bg-white">
+                      <div className="text-left relative z-10 flex-1 flex items-center gap-4">
+                        <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-brand-50 text-brand-600">
+                          <Award size={24} />
+                        </div>
+                        <div>
+                          <h1 className="text-lg font-bold text-gray-900 mb-0.5">
+                            {sessionReview.session?.student?.surname || 'Student'}
+                          </h1>
+                          <p className="text-gray-500 text-xs font-semibold">
+                            {sessionReview.session?.student?.matricNumber || 'N/A'} • {sessionReview.session?.exam?.title || 'Exam'}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 relative z-10 w-full md:w-auto">
+                        <div className="bg-white border border-gray-100 shadow-sm rounded-xl p-3 text-center min-w-[90px]">
+                          <div className="flex justify-center items-center gap-1 text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1">
+                            <Target size={12} className="text-gray-400" /> Score
+                          </div>
+                          <div className="text-base font-bold text-gray-900">{sessionReview.session?.percentage}%</div>
+                        </div>
+                        <div className="bg-green-50 border border-green-100 rounded-xl p-3 text-center min-w-[90px]">
+                          <div className="flex justify-center items-center gap-1 text-[10px] text-green-600 font-bold uppercase tracking-wider mb-1">
+                            <CheckCircle2 size={12} /> Correct
+                          </div>
+                          <div className="text-base font-bold text-green-700">{sessionReview.session?.score}</div>
+                        </div>
+                        <div className="bg-red-50 border border-red-100 rounded-xl p-3 text-center min-w-[90px]">
+                          <div className="flex justify-center items-center gap-1 text-[10px] text-red-600 font-bold uppercase tracking-wider mb-1">
+                            <XCircle size={12} /> Wrong
+                          </div>
+                          <div className="text-base font-bold text-red-700">
+                            {Math.max(0, (sessionReview.session?.totalQuestions || 0) - (sessionReview.session?.score || 0))}
+                          </div>
+                        </div>
+                        <div className="bg-white border border-gray-100 shadow-sm rounded-xl p-3 text-center min-w-[90px]">
+                          <div className="flex justify-center items-center gap-1 text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1">
+                            <Clock size={12} className="text-gray-400" /> Time Taken
+                          </div>
+                          <div className="text-xs font-bold text-gray-900 mt-1">
+                            {sessionReview.session?.completedAt && sessionReview.session?.startedAt
+                              ? `${Math.max(0, Math.round((new Date(sessionReview.session.completedAt) - new Date(sessionReview.session.startedAt)) / 60000))}m`
+                              : 'N/A'}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Question Reviews */}
+                    <div className="space-y-4">
+                      <h4 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                        <span className="w-4 h-1.5 bg-brand-500 rounded-full"></span> Response Details
+                      </h4>
+
+                      {sessionReview.review && sessionReview.review.length > 0 ? (
+                        sessionReview.review.map((item, idx) => {
+                          const isCorrect = item.isCorrect;
+                          return (
+                            <div key={item.questionId || idx} className="bg-white rounded-3xl p-5 border border-gray-100 shadow-soft">
+                              <div className="flex items-center justify-between gap-3 mb-3">
+                                <span className="text-xs font-semibold text-gray-500">Question {idx + 1}</span>
+                                <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold ${
+                                  isCorrect ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+                                }`}>
+                                  {isCorrect ? (
+                                    <><CheckCircle2 size={12} /> Correct</>
+                                  ) : (
+                                    <><XCircle size={12} /> Incorrect</>
+                                  )}
+                                </span>
+                              </div>
+
+                              <h3 className="text-sm font-semibold text-gray-900 mb-4 leading-snug">
+                                {item.question}
+                              </h3>
+
+                              <div className="grid sm:grid-cols-2 gap-2 mb-4">
+                                {item.options.map((opt) => {
+                                  const selectedLabels = String(item.selectedOption || '').split(',');
+                                  const correctLabels = String(item.correctOption || '').split(',');
+                                  const isSelected = selectedLabels.includes(opt.label);
+                                  const isCorrectOpt = correctLabels.includes(opt.label);
+
+                                  let optClass = 'bg-gray-50/50 border-gray-100 text-gray-600';
+                                  if (isCorrectOpt) {
+                                    optClass = 'bg-green-50 border-green-200 text-green-700 font-semibold';
+                                  } else if (isSelected && !isCorrectOpt) {
+                                    optClass = 'bg-red-50 border-red-200 text-red-700 font-semibold';
+                                  }
+
+                                  return (
+                                    <div key={opt.label} className={`p-3 rounded-xl text-xs border flex items-center justify-between ${optClass}`}>
+                                      <span>
+                                        <span className="font-bold mr-1.5">{opt.label})</span>
+                                        {opt.text}
+                                      </span>
+                                      {isCorrectOpt && <CheckCircle2 size={14} className="text-green-600 flex-shrink-0 ml-2" />}
+                                      {isSelected && !isCorrectOpt && <XCircle size={14} className="text-red-600 flex-shrink-0 ml-2" />}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+
+                              {item.explanation && (
+                                <div className="bg-amber-50/40 border border-amber-100/60 rounded-2xl p-4 text-xs text-gray-700">
+                                  <strong className="text-amber-800 block mb-1">Explanation:</strong>
+                                  {item.explanation}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <div className="soft-card p-5 text-sm text-gray-500 text-center">No detailed question responses captured for this attempt.</div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="h-full flex items-center justify-center text-sm text-gray-500">No data found.</div>
+                )}
+              </div>
+
+              <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end flex-shrink-0">
+                <button onClick={handleCloseModal} className="pill-button bg-gray-900 text-white font-semibold hover:bg-black transition-colors shadow-sm">
+                  Close Breakdown
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

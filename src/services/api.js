@@ -346,3 +346,8 @@ export async function getExamReview(examId) {
   const result = await apiFetch(`/student/exams/${examId}/review`);
   return result.data;
 }
+
+export async function getAdminSessionReview(sessionId) {
+  const result = await apiFetch(`/admin/results/session/${sessionId}/review`);
+  return result.data;
+}

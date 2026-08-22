@@ -210,4 +210,111 @@ function buildResults() {
     });
 }
 
+const OPTION_LABELS = ["A", "B", "C", "D"];
+
+function normalizeOptions(options) {
+  if (Array.isArray(options)) {
+    return options.slice(0, 4).map((option, index) => {
+      if (typeof option === "string") {
+        return { label: OPTION_LABELS[index] || String(index + 1), text: option };
+      }
+
+      if (option && typeof option === "object") {
+        return {
+          label: String(option.label || OPTION_LABELS[index] || String(index + 1)).toUpperCase(),
+          text: String(option.text || option.value || option.optionText || option.label || "")
+        };
+      }
+
+      return { label: OPTION_LABELS[index] || String(index + 1), text: String(option ?? "") };
+    }).filter((option) => {
+      const clean = option.text.trim().toLowerCase();
+      return clean !== "" && clean !== "not applicable" && clean !== "n/a";
+    });
+  }
+
+  if (options && typeof options === "object") {
+    return Object.entries(options).map(([label, text]) => ({
+      label: String(label).toUpperCase(),
+      text: String(text)
+    }));
+  }
+
+  return [];
+}
+
+function resolveOptionLabel(value, options) {
+  if (value === undefined || value === null) return "";
+  const target = String(value).trim();
+  if (!target) return "";
+
+  const prefixMatch = target.match(/(?:Answer|Correct|Correct Answer|Correct Option|Ans)[:\s-]+\s*([A-D])/i);
+  if (prefixMatch) {
+    return prefixMatch[1].toUpperCase();
+  }
+
+  const cleanTarget = target.replace(/^[\(\[\{]?([A-D])[\)\]\.]?$/i, "$1").toUpperCase();
+  if (["A", "B", "C", "D"].includes(cleanTarget)) {
+    return cleanTarget;
+  }
+
+  const normalizedTarget = target.toLowerCase();
+  const upperTarget = target.toUpperCase();
+
+  const byLabel = options.find((option) => String(option.label || "").toUpperCase() === upperTarget);
+  if (byLabel) return String(byLabel.label || "").toUpperCase();
+
+  const byText = options.find((option) => String(option.text || "").trim().toLowerCase() === normalizedTarget);
+  if (byText) return String(byText.label || "").toUpperCase();
+
+  return upperTarget;
+}
+
+function resolveAnswerLabels(value, options) {
+  if (value === undefined || value === null) return "";
+  const items = String(value)
+    .split(",")
+    .map(s => s.trim())
+    .filter(Boolean);
+  const resolved = items.map(item => resolveOptionLabel(item, options));
+  return resolved.filter(Boolean).sort().join(",");
+}
+
+router.get("/results/session/:sessionId/review", asyncHandler(async (req, res) => {
+  const session = store.collection("examSessions").find((s) => s.id === req.params.sessionId);
+  if (!session) return fail(res, 404, "Exam session not found");
+
+  const exam = store.collection("exams").find((e) => e.id === session.examId);
+  const student = store.collection("users").find((u) => u.id === session.studentId);
+
+  const answers = store.collection("examAnswers").filter((a) => a.sessionId === session.id || a.session_id === session.id);
+
+  const review = answers.map((ans) => {
+    const question = store.collection("questions").find((q) => q.id === ans.questionId || q.id === ans.question_id);
+    const options = normalizeOptions(question?.options);
+    const correctLabel = resolveAnswerLabels(question?.correctOption || question?.correct_option, options);
+    const selectedLabel = resolveAnswerLabels(ans.selectedOption || ans.selected_option, options);
+
+    return {
+      questionId: question ? question.id : ans.questionId || ans.question_id,
+      question: question ? question.question : null,
+      options,
+      correctOption: correctLabel || (question ? (question.correctOption || question.correct_option) : null),
+      selectedOption: selectedLabel || (ans.selectedOption || ans.selected_option || null),
+      isCorrect: Boolean(ans.isCorrect || ans.is_correct),
+      explanation: question ? question.explanation : null
+    };
+  });
+
+  return ok(res, {
+    session: {
+      ...session,
+      percentage: session.totalQuestions ? Math.round((session.score / session.totalQuestions) * 100) : 0,
+      exam,
+      student: store.withoutSecrets(student)
+    },
+    review
+  });
+}));
+
 module.exports = router;

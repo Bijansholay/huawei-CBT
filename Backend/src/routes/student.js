@@ -52,7 +52,30 @@ router.get("/exams", (req, res) => {
     .map((item) => item.examId);
 
   const exams = store.collection("exams")
-    .filter((exam) => enrolledExamIds.includes(exam.id) && exam.status !== "draft");
+    .filter((exam) => enrolledExamIds.includes(exam.id) && exam.status !== "draft")
+    .map((exam) => {
+      const sessions = store.collection("examSessions").filter(
+        (s) => s.examId === exam.id && s.studentId === req.user.id
+      );
+
+      const completed = sessions.find((s) => s.status === "completed");
+      const active = sessions.find((s) => s.status === "active");
+
+      return {
+        ...exam,
+        completedSession: completed ? {
+          id: completed.id,
+          score: completed.score,
+          totalQuestions: completed.totalQuestions,
+          percentage: completed.totalQuestions ? Math.round((completed.score / completed.totalQuestions) * 100) : 0,
+          completedAt: completed.completedAt
+        } : null,
+        activeSession: active ? {
+          id: active.id,
+          startedAt: active.startedAt
+        } : null
+      };
+    });
 
   return ok(res, { exams });
 });
