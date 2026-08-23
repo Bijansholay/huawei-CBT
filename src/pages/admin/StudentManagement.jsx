@@ -161,6 +161,7 @@ export default function StudentManagement() {
                   <th className="px-6 py-4">Name</th>
                   <th className="px-6 py-4">Track</th>
                   <th className="px-6 py-4">Email</th>
+                  <th className="px-6 py-4 text-center">Exams</th>
                   <th className="px-6 py-4 text-right">Actions</th>
                 </tr>
               </thead>
@@ -171,6 +172,11 @@ export default function StudentManagement() {
                     <td className="px-6 py-3 font-medium text-gray-900">{student.surname || 'Student'}</td>
                     <td className="px-6 py-3 text-gray-500">{student.track || 'Unassigned'}</td>
                     <td className="px-6 py-3 text-gray-500">{student.email || 'No email'}</td>
+                    <td className="px-6 py-3 text-center">
+                      <span className="inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-brand-50 text-brand-700 min-w-[24px]">
+                        {student.examsCount || 0}
+                      </span>
+                    </td>
                     <td className="px-6 py-3 text-right">
                       <div className="flex justify-end gap-2">
                         <button

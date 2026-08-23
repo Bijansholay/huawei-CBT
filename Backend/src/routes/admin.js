@@ -34,9 +34,17 @@ function requireSuperAdmin(req, res) {
 }
 
 router.get("/students", (req, res) => {
+  const enrollments = store.collection("examEnrollments").filter((item) => !item.deleted);
+
   const students = store.collection("users")
     .filter((user) => user.role === "student")
-    .map(store.withoutSecrets);
+    .map((user) => {
+      const studentEnrollments = enrollments.filter((e) => e.studentId === user.id);
+      return {
+        ...store.withoutSecrets(user),
+        examsCount: studentEnrollments.length
+      };
+    });
   return ok(res, { students });
 });
 

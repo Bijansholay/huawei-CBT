@@ -233,6 +233,12 @@ test("frontend integration API flow", async () => {
     assert.equal(examStudents.json.data.students.length, 1);
     assert.equal(examStudents.json.data.students[0].track, "ND 2A");
 
+    const studentsList = await request(baseUrl, "GET", "/api/admin/students", null, adminToken);
+    assert.equal(studentsList.response.status, 200);
+    const targetStudent = studentsList.json.data.students.find((s) => s.id === studentId);
+    assert.ok(targetStudent, "Enrolled student should be in the list");
+    assert.equal(targetStudent.examsCount, 1);
+
     const studentLogin = await request(baseUrl, "POST", "/api/auth/login", {
       matricNumber: "CBT/001",
       surname: "Adeleke"
