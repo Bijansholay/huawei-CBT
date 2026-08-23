@@ -49,8 +49,25 @@ export default function Dashboard() {
         </div>
 
         {(() => {
-          const availableExams = exams.filter(exam => !exam.completedSession && exam.status === 'active');
-          const completedExams = exams.filter(exam => exam.completedSession);
+          const availableExams = exams.filter(exam => exam.status === 'active');
+          
+          const completedExams = [];
+          exams.forEach((exam) => {
+            const sessions = exam.completedSessions || [];
+            sessions.forEach((session) => {
+              completedExams.push({
+                ...exam,
+                completedSession: session
+              });
+            });
+          });
+
+          // Sort completed attempts by completion date descending
+          completedExams.sort((a, b) => {
+            const aTime = new Date(a.completedSession?.completedAt || 0).getTime();
+            const bTime = new Date(b.completedSession?.completedAt || 0).getTime();
+            return bTime - aTime;
+          });
 
           return (
             <>
@@ -146,7 +163,7 @@ export default function Dashboard() {
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ delay: index * 0.05 }}
-                        key={exam.id}
+                        key={session?.id || exam.id}
                         className="soft-card p-4 flex flex-col relative overflow-hidden bg-white/80 border border-gray-100"
                       >
                         <div className="flex justify-between items-start mb-2">
@@ -173,7 +190,7 @@ export default function Dashboard() {
                           </div>
 
                           <button
-                            onClick={() => navigate(`/student/result/${exam.id}`)}
+                            onClick={() => navigate(`/student/result/${exam.id}?session=${session?.id || ''}`)}
                             className="h-8 px-3.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-brand-50 text-brand-700 hover:bg-brand-100 transition-colors flex items-center justify-center"
                           >
                             Review

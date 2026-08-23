@@ -274,6 +274,46 @@ test("frontend integration API flow", async () => {
     assert.equal(results.json.data.results.length, 1);
     assert.equal(results.json.data.results[0].score, 1);
     assert.equal(results.json.data.results[0].percentage, 100);
+
+    // Verify completedSessions list on student exams
+    const studentExams1 = await request(baseUrl, "GET", "/api/student/exams", null, studentToken);
+    assert.equal(studentExams1.response.status, 200);
+    const targetExam1 = studentExams1.json.data.exams.find((e) => e.id === examId);
+    assert.ok(targetExam1);
+    assert.equal(targetExam1.completedSessions.length, 1);
+
+    // Start second attempt on the same exam
+    const start2 = await request(baseUrl, "POST", `/api/student/exams/${examId}/start`, null, studentToken);
+    assert.equal(start2.response.status, 200);
+    const secondSessionId = start2.json.data.session.id;
+
+    // Submit second attempt
+    const submit2 = await request(baseUrl, "POST", `/api/exams/${examId}/submit`, {
+      answers: [{ questionId, selectedOption: "B" }]
+    }, studentToken);
+    assert.equal(submit2.response.status, 200);
+
+    // Verify both attempts exist
+    const studentExams2 = await request(baseUrl, "GET", "/api/student/exams", null, studentToken);
+    assert.equal(studentExams2.response.status, 200);
+    const targetExam2 = studentExams2.json.data.exams.find((e) => e.id === examId);
+    assert.equal(targetExam2.completedSessions.length, 2);
+
+    // Review second attempt specifically
+    const review2 = await request(baseUrl, "GET", `/api/student/exams/session/${secondSessionId}/review`, null, studentToken);
+    assert.equal(review2.response.status, 200);
+    assert.equal(review2.json.data.session.id, secondSessionId);
+
+    // Test: De-enroll student (empty student list)
+    const deenroll = await request(baseUrl, "POST", `/api/exams/${examId}/enroll`, {
+      studentIds: []
+    }, adminToken);
+    assert.equal(deenroll.response.status, 200);
+
+    // Check enrollment list is now empty
+    const examStudentsAfter = await request(baseUrl, "GET", `/api/exams/${examId}/students`, null, adminToken);
+    assert.equal(examStudentsAfter.response.status, 200);
+    assert.equal(examStudentsAfter.json.data.students.length, 0);
   } finally {
     server.close();
     if (fs.existsSync(process.env.DATA_FILE)) fs.unlinkSync(process.env.DATA_FILE);

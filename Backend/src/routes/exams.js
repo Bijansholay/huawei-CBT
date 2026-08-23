@@ -154,8 +154,19 @@ router.post("/:id/enroll", authenticate, requireRole("admin"), asyncHandler(asyn
   if (!exam) return fail(res, 404, "Exam not found");
 
   const studentIds = req.body.studentIds || req.body.student_ids || [];
-  if (!Array.isArray(studentIds) || studentIds.length === 0) {
-    return fail(res, 400, "studentIds must be a non-empty array");
+  if (!Array.isArray(studentIds)) {
+    return fail(res, 400, "studentIds must be an array");
+  }
+
+  // De-enroll any students who are not in the new studentIds list
+  const currentEnrollments = store.collection("examEnrollments").filter(
+    (item) => item.examId === exam.id && !item.deleted
+  );
+
+  for (const enrollment of currentEnrollments) {
+    if (!studentIds.includes(enrollment.studentId)) {
+      await store.remove("examEnrollments", enrollment.id);
+    }
   }
 
   const enrollments = [];
@@ -163,7 +174,7 @@ router.post("/:id/enroll", authenticate, requireRole("admin"), asyncHandler(asyn
     const student = store.collection("users").find((user) => user.id === studentId && user.role === "student");
     if (!student) continue;
 
-    const existing = store.collection("examEnrollments").find((item) => item.examId === exam.id && item.studentId === student.id);
+    const existing = store.collection("examEnrollments").find((item) => item.examId === exam.id && item.studentId === student.id && !item.deleted);
     if (existing) {
       enrollments.push(existing);
     } else {

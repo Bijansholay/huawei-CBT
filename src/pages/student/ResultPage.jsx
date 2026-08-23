@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import Navbar from '../../components/student/Navbar';
 import { motion } from 'framer-motion';
 import { ArrowLeft, CheckCircle2, XCircle, Clock, Target, Award } from 'lucide-react';
@@ -9,12 +9,18 @@ import { useExam } from '../../context/ExamContext';
 export default function ResultPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { lastSubmission } = useExam();
   const [result, setResult] = useState(null);
   const [review, setReview] = useState(null);
   const [isReviewLoading, setIsReviewLoading] = useState(true);
   const [examTitle, setExamTitle] = useState('');
   const [error, setError] = useState('');
+
+  const sessionId = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get('session');
+  }, [location.search]);
 
   useEffect(() => {
     let active = true;
@@ -24,13 +30,16 @@ export default function ResultPage() {
       try {
         const [resultData, reviewData] = await Promise.all([
           getExamResults(id),
-          getExamReview(id).catch(() => null)
+          getExamReview(id, sessionId).catch(() => null)
         ]);
         const sessions = resultData.results || [];
-        const latest = sessions[0] || null;
+        const selected = sessionId 
+          ? (sessions.find((s) => s.id === sessionId) || sessions[0] || null)
+          : (sessions[0] || null);
+
         if (active) {
           setExamTitle(resultData.exam?.title || '');
-          setResult(latest);
+          setResult(selected);
           if (reviewData) {
             setReview(reviewData.review || []);
           }
@@ -54,7 +63,7 @@ export default function ResultPage() {
     return () => {
       active = false;
     };
-  }, [id, lastSubmission]);
+  }, [id, lastSubmission, sessionId]);
 
   const summary = useMemo(() => {
     if (!result) return null;

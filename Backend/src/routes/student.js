@@ -58,17 +58,26 @@ router.get("/exams", (req, res) => {
         (s) => s.examId === exam.id && s.studentId === req.user.id
       );
 
-      const completed = sessions.find((s) => s.status === "completed");
+      const completed = sessions.filter((s) => s.status === "completed")
+        .sort((a, b) => new Date(b.completedAt || b.startedAt || 0).getTime() - new Date(a.completedAt || a.startedAt || 0).getTime());
+
       const active = sessions.find((s) => s.status === "active");
 
       return {
         ...exam,
-        completedSession: completed ? {
-          id: completed.id,
-          score: completed.score,
-          totalQuestions: completed.totalQuestions,
-          percentage: completed.totalQuestions ? Math.round((completed.score / completed.totalQuestions) * 100) : 0,
-          completedAt: completed.completedAt
+        completedSessions: completed.map((s) => ({
+          id: s.id,
+          score: s.score,
+          totalQuestions: s.totalQuestions,
+          percentage: s.totalQuestions ? Math.round((s.score / s.totalQuestions) * 100) : 0,
+          completedAt: s.completedAt
+        })),
+        completedSession: completed[0] ? {
+          id: completed[0].id,
+          score: completed[0].score,
+          totalQuestions: completed[0].totalQuestions,
+          percentage: completed[0].totalQuestions ? Math.round((completed[0].score / completed[0].totalQuestions) * 100) : 0,
+          completedAt: completed[0].completedAt
         } : null,
         activeSession: active ? {
           id: active.id,
@@ -338,5 +347,34 @@ router.get('/exams/:id/review', (req, res) => {
   return ok(res, { session, review });
 });
 
+// GET /exams/session/:sessionId/review - review a specific completed session
+router.get('/exams/session/:sessionId/review', (req, res) => {
+  const session = store.collection('examSessions').find((s) => s.id === req.params.sessionId && s.studentId === req.user.id);
+  if (!session) return fail(res, 404, 'Session not found');
+
+  const exam = store.collection('exams').find((e) => e.id === session.examId);
+  if (!exam) return fail(res, 404, 'Exam not found');
+
+  const answers = store.collection('examAnswers').filter((a) => a.sessionId === session.id || a.session_id === session.id);
+
+  const review = answers.map((ans) => {
+    const question = store.collection('questions').find((q) => q.id === ans.questionId || q.id === ans.question_id);
+    const options = normalizeOptions(question?.options);
+    const correctLabel = resolveAnswerLabels(question?.correctOption || question?.correct_option, options);
+    const selectedLabel = resolveAnswerLabels(ans.selectedOption || ans.selected_option, options);
+
+    return {
+      questionId: question ? question.id : ans.questionId || ans.question_id,
+      question: question ? question.question : null,
+      options,
+      correctOption: correctLabel || (question ? (question.correctOption || question.correct_option) : null),
+      selectedOption: selectedLabel || (ans.selectedOption || ans.selected_option || null),
+      isCorrect: Boolean(ans.isCorrect || ans.is_correct),
+      explanation: question ? question.explanation : null
+    };
+  });
+
+  return ok(res, { session: { ...session, exam }, review });
+});
 
 module.exports = router;
