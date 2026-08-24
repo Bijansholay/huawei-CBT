@@ -196,8 +196,13 @@ function collection(name) {
 
 async function persistInsert(name, item) {
   if (config.storageDriver === "supabase") {
-    const { error } = await supabase.from(tableMap[name]).insert(toDbRecord(name, item));
-    if (error) throw new Error(`Supabase insert failed for ${tableMap[name]}: ${error.message}`);
+    const dbRecord = toDbRecord(name, item);
+    console.log(`[DB INSERT] Table: ${tableMap[name]}, Payload:`, dbRecord);
+    const { error } = await supabase.from(tableMap[name]).insert(dbRecord);
+    if (error) {
+      console.error(`[DB INSERT ERROR] Table: ${tableMap[name]}, Error:`, error);
+      throw new Error(`Supabase insert failed for ${tableMap[name]}: ${error.message}`);
+    }
     return;
   }
   saveFile();
@@ -205,8 +210,14 @@ async function persistInsert(name, item) {
 
 async function persistUpdate(name, id, patch) {
   if (config.storageDriver === "supabase") {
-    const { error } = await supabase.from(tableMap[name]).update(toDbRecord(name, patch)).eq("id", id);
-    if (error) throw new Error(`Supabase update failed for ${tableMap[name]}: ${error.message}`);
+    const dbRecord = toDbRecord(name, patch);
+    console.log(`[DB UPDATE] Table: ${tableMap[name]}, ID: ${id}, Payload:`, dbRecord);
+    const { data, error } = await supabase.from(tableMap[name]).update(dbRecord).eq("id", id).select();
+    console.log(`[DB UPDATE RESULT] Table: ${tableMap[name]}, ID: ${id}, Error:`, error, `Returned Data:`, data);
+    if (error) {
+      console.error(`[DB UPDATE ERROR] Table: ${tableMap[name]}, ID: ${id}, Error:`, error);
+      throw new Error(`Supabase update failed for ${tableMap[name]}: ${error.message}`);
+    }
     return;
   }
   saveFile();
@@ -214,8 +225,12 @@ async function persistUpdate(name, id, patch) {
 
 async function persistDelete(name, id) {
   if (config.storageDriver === "supabase") {
+    console.log(`[DB DELETE] Table: ${tableMap[name]}, ID: ${id}`);
     const { error } = await supabase.from(tableMap[name]).delete().eq("id", id);
-    if (error) throw new Error(`Supabase delete failed for ${tableMap[name]}: ${error.message}`);
+    if (error) {
+      console.error(`[DB DELETE ERROR] Table: ${tableMap[name]}, ID: ${id}, Error:`, error);
+      throw new Error(`Supabase delete failed for ${tableMap[name]}: ${error.message}`);
+    }
     return;
   }
   saveFile();
@@ -225,12 +240,16 @@ function sanitizeQuestionRecord(record) {
   const rawVal = record.correctOption ?? record.correct_option;
   if (rawVal !== undefined && rawVal !== null) {
     let val = String(rawVal).trim().toUpperCase();
-    const match = val.match(/(?:Answer|Correct|Correct Answer|Correct Option|Ans)[:\s-]+\s*([A-D])/i);
+    const match = val.match(/(?:Answer|Correct|Correct Answer|Correct Option|Ans)[:\s-]+\s*([A-D](?:\s*,\s*[A-D])*)/i);
     if (match) {
       val = match[1].toUpperCase();
+    }
+    const matched = val.match(/[A-D]/ig);
+    if (matched && matched.length > 0) {
+      const unique = Array.from(new Set(matched.map(l => l.toUpperCase()))).sort();
+      val = unique.join(",");
     } else {
-      const letterMatch = val.match(/[A-D]/i);
-      val = letterMatch ? letterMatch[0].toUpperCase() : "A";
+      val = "A";
     }
     record.correctOption = val;
     record.correct_option = val;
