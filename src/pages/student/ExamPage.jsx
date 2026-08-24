@@ -84,8 +84,8 @@ export default function ExamPage() {
       || target.msRequestFullscreen;
 
     if (!request) {
-      setFullscreenPrompt(true);
-      return false;
+      setFullscreenPrompt(false);
+      return true;
     }
 
     try {
@@ -205,7 +205,11 @@ export default function ExamPage() {
         setViolationCount(0);
         setViolationModal({ open: false, message: '' });
         setTimeLeft(minutes > 0 ? minutes * 60 : 0);
-        setFullscreenPrompt(true);
+        
+        const target = document.documentElement;
+        const hasFullscreen = !!(target.requestFullscreen || target.webkitRequestFullscreen || target.msRequestFullscreen);
+        setFullscreenPrompt(hasFullscreen);
+        
         void requestFullscreenMode();
       })
       .catch((err) => {
@@ -236,6 +240,12 @@ export default function ExamPage() {
 
     const handleFullscreenChange = (event) => {
       event?.preventDefault?.();
+      const target = document.documentElement;
+      const request = target.requestFullscreen
+        || target.webkitRequestFullscreen
+        || target.msRequestFullscreen;
+      if (!request) return;
+
       if (!getFullscreenElement()) {
         void handleViolation('fullscreenchange');
       }
