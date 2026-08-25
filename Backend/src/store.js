@@ -2,8 +2,25 @@ const fs = require("fs");
 const path = require("path");
 const { v4: uuid } = require("uuid");
 const { createClient } = require("@supabase/supabase-js");
+const nodeFetch = require("node-fetch");
+const https = require("https");
 const config = require("./config");
 const { hashPassword } = require("./utils/crypto");
+
+const keepAliveAgent = new https.Agent({
+  keepAlive: true,
+  keepAliveMsecs: 10000,
+  maxSockets: 64,
+  maxFreeSockets: 16,
+  timeout: 60000
+});
+
+const customFetch = (url, options = {}) => {
+  return nodeFetch(url, {
+    ...options,
+    agent: keepAliveAgent
+  });
+};
 
 const now = () => new Date().toISOString();
 
@@ -149,7 +166,10 @@ function saveFile() {
 
 async function loadSupabase() {
   supabase = createClient(config.supabaseUrl, config.supabaseServiceKey, {
-    auth: { persistSession: false }
+    auth: { persistSession: false },
+    global: {
+      fetch: customFetch
+    }
   });
 
   for (const [name, table] of Object.entries(tableMap)) {
