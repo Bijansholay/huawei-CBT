@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import axios from "axios";
 import { 
   Terminal, Cable, Cpu, Server, Monitor, Trash2, 
   CheckCircle, Play, ArrowLeft, RefreshCw, AlertCircle, Sparkles
@@ -13,6 +12,7 @@ import {
   simulatePingTrace,
   maskLengthToDotted
 } from "../../services/enspSimService";
+import { listLabs, getLabDetails, submitLabAttempt } from "../../services/api";
 
 export default function Simulator() {
   const { labId } = useParams();
@@ -77,10 +77,8 @@ export default function Simulator() {
   const fetchLabs = async () => {
     try {
       setIsLoadingLabs(true);
-      const res = await axios.get("http://localhost:3000/api/labs", {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setLabs(res.data.labs || []);
+      const res = await listLabs();
+      setLabs(res.labs || []);
     } catch (err) {
       console.error(err);
       setErrorMsg("Failed to load assigned labs.");
@@ -92,10 +90,8 @@ export default function Simulator() {
   const fetchLabDetails = async (id) => {
     try {
       setIsLoadingLab(true);
-      const res = await axios.get(`http://localhost:3000/api/labs/${id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const labData = res.data.lab;
+      const res = await getLabDetails(id);
+      const labData = res.lab;
       setLab(labData);
       
       // Load initial state if present
@@ -133,14 +129,12 @@ export default function Simulator() {
         };
       });
 
-      const res = await axios.post(`http://localhost:3000/api/labs/${lab.id}/submit`, {
+      const res = await submitLabAttempt(lab.id, {
         topology,
         configs
-      }, {
-        headers: { Authorization: `Bearer ${token}` }
       });
 
-      setSubmissionResult(res.data.attempt);
+      setSubmissionResult(res.attempt);
     } catch (err) {
       console.error(err);
       setErrorMsg("Submission failed: " + (err.response?.data?.message || err.message));

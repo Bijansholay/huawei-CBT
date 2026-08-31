@@ -1,10 +1,13 @@
 import { useState, useEffect } from "react";
-import axios from "axios";
 import { 
   Terminal, ShieldAlert, Cpu, Server, Plus, Trash2, 
   UserPlus, UserMinus, FileText, CheckCircle, RefreshCw, X
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { 
+  listLabs, createLab, deleteLab, listLabEnrollments, 
+  enrollInLab, unenrollFromLab, listLabAttempts, getLabAttempt, listStudents 
+} from "../../services/api";
 
 export default function LabManagement() {
   const [labs, setLabs] = useState([]);
@@ -52,8 +55,6 @@ export default function LabManagement() {
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
 
-  const token = localStorage.getItem("token") || "";
-
   useEffect(() => {
     fetchData();
   }, []);
@@ -62,12 +63,12 @@ export default function LabManagement() {
     try {
       setIsLoading(true);
       setErrorMsg("");
-      const [labsRes, studentsRes] = await Promise.all([
-        axios.get("http://localhost:3000/api/labs", { headers: { Authorization: `Bearer ${token}` } }),
-        axios.get("http://localhost:3000/api/admin/students", { headers: { Authorization: `Bearer ${token}` } })
+      const [labsRes, studentsData] = await Promise.all([
+        listLabs(),
+        listStudents()
       ]);
-      setLabs(labsRes.data.labs || []);
-      setStudents(studentsRes.data.students || []);
+      setLabs(labsRes.labs || []);
+      setStudents(studentsData.students || []);
     } catch (err) {
       console.error(err);
       setErrorMsg("Failed to fetch dashboard data.");
@@ -149,9 +150,7 @@ export default function LabManagement() {
         }
       };
 
-      await axios.post("http://localhost:3000/api/labs", payload, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await createLab(payload);
 
       setSuccessMsg("Lab created successfully!");
       setShowCreateModal(false);
@@ -167,9 +166,7 @@ export default function LabManagement() {
     if (!window.confirm("Are you sure you want to delete this lab and all attempts?")) return;
     try {
       setErrorMsg("");
-      await axios.delete(`http://localhost:3000/api/labs/${id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await deleteLab(id);
       fetchData();
     } catch (err) {
       console.error(err);
@@ -184,10 +181,8 @@ export default function LabManagement() {
     setSelectedLab(labItem);
     try {
       setErrorMsg("");
-      const res = await axios.get(`http://localhost:3000/api/labs/${labItem.id}/enrollments`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setAssignedStudents(res.data.students || []);
+      const res = await listLabEnrollments(labItem.id);
+      setAssignedStudents(res.students || []);
       setShowAssignModal(true);
     } catch (err) {
       console.error(err);
@@ -198,34 +193,26 @@ export default function LabManagement() {
   const assignStudent = async (studentId) => {
     if (!selectedLab) return;
     try {
-      await axios.post(`http://localhost:3000/api/labs/${selectedLab.id}/enroll`, { studentId }, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await enrollInLab(selectedLab.id, studentId);
       // Refresh enrollments list
-      const res = await axios.get(`http://localhost:3000/api/labs/${selectedLab.id}/enrollments`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setAssignedStudents(res.data.students || []);
+      const res = await listLabEnrollments(selectedLab.id);
+      setAssignedStudents(res.students || []);
     } catch (err) {
       console.error(err);
-      alert(err.response?.data?.message || "Failed to assign student.");
+      alert(err.message || "Failed to assign student.");
     }
   };
 
   const unassignStudent = async (studentId) => {
     if (!selectedLab) return;
     try {
-      await axios.post(`http://localhost:3000/api/labs/${selectedLab.id}/unenroll`, { studentId }, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await unenrollFromLab(selectedLab.id, studentId);
       // Refresh enrollments list
-      const res = await axios.get(`http://localhost:3000/api/labs/${selectedLab.id}/enrollments`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setAssignedStudents(res.data.students || []);
+      const res = await listLabEnrollments(selectedLab.id);
+      setAssignedStudents(res.students || []);
     } catch (err) {
       console.error(err);
-      alert(err.response?.data?.message || "Failed to remove student.");
+      alert(err.message || "Failed to remove student.");
     }
   };
 
@@ -236,10 +223,8 @@ export default function LabManagement() {
     setSelectedLab(labItem);
     try {
       setErrorMsg("");
-      const res = await axios.get(`http://localhost:3000/api/labs/${labItem.id}/attempts`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setAttempts(res.data.attempts || []);
+      const res = await listLabAttempts(labItem.id);
+      setAttempts(res.attempts || []);
       setShowAttemptsModal(true);
     } catch (err) {
       console.error(err);
@@ -250,10 +235,8 @@ export default function LabManagement() {
   const openReviewModal = async (attempt) => {
     try {
       setErrorMsg("");
-      const res = await axios.get(`http://localhost:3000/api/labs/attempts/${attempt.id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setSelectedAttempt(res.data.attempt);
+      const res = await getLabAttempt(attempt.id);
+      setSelectedAttempt(res.attempt);
       setShowReviewModal(true);
     } catch (err) {
       console.error(err);
