@@ -13,6 +13,7 @@ const examRoutes = require("./routes/exams");
 const studentRoutes = require("./routes/student");
 const pdfRoutes = require("./routes/pdf");
 const questionRoutes = require("./routes/questions");
+const labRoutes = require("./routes/labs");
 
 const app = express();
 
@@ -59,6 +60,7 @@ app.use("/api/exams", examRoutes);
 app.use("/api/student", studentRoutes);
 app.use("/api/pdf", pdfRoutes);
 app.use("/api/questions", questionRoutes);
+app.use("/api/labs", labRoutes);
 
 app.use((req, res) => fail(res, 404, "Route not found"));
 

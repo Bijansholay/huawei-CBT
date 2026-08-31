@@ -15,7 +15,15 @@ export default function Navbar() {
         <span className="text-lg font-semibold text-gray-900 tracking-tight hidden sm:block">Huawei CBT</span>
       </div>
       
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-4">
+        {user?.role === 'student' && (
+          <button 
+            onClick={() => navigate('/student/simulator')}
+            className="text-sm font-semibold text-gray-600 hover:text-indigo-600 transition-colors mr-2 cursor-pointer"
+          >
+            Practice Labs
+          </button>
+        )}
         <button className="icon-button">
           <Bell size={18} />
         </button>

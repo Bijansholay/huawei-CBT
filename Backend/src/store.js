@@ -32,7 +32,10 @@ const tableMap = {
   pdfs: "pdfs",
   questions: "questions",
   examAnswers: "exam_answers",
-  examViolations: "exam_violations"
+  examViolations: "exam_violations",
+  labs: "labs",
+  labEnrollments: "lab_enrollments",
+  labAttempts: "lab_attempts"
 };
 
 const initialState = () => ({
@@ -43,7 +46,10 @@ const initialState = () => ({
   pdfs: [],
   questions: [],
   examAnswers: [],
-  examViolations: []
+  examViolations: [],
+  labs: [],
+  labEnrollments: [],
+  labAttempts: []
 });
 
 let state = initialState();
@@ -87,7 +93,11 @@ function camelizeRecord(record) {
     strikeCount: record.strike_count ?? record.strikeCount,
     occurredAt: record.occurred_at ?? record.occurredAt,
     fullscreenActive: record.fullscreen_active ?? record.fullscreenActive,
-    visibilityState: record.visibility_state ?? record.visibilityState
+    visibilityState: record.visibility_state ?? record.visibilityState,
+    labId: record.lab_id ?? record.labId,
+    targetState: record.target_state ?? record.targetState,
+    initialState: record.initial_state ?? record.initialState,
+    submittedAt: record.submitted_at ?? record.submittedAt
   };
 }
 
@@ -123,7 +133,11 @@ function toDbRecord(name, record) {
     strikeCount: "strike_count",
     occurredAt: "occurred_at",
     fullscreenActive: "fullscreen_active",
-    visibilityState: "visibility_state"
+    visibilityState: "visibility_state",
+    labId: "lab_id",
+    targetState: "target_state",
+    initialState: "initial_state",
+    submittedAt: "submitted_at"
   };
 
   for (const [camel, snake] of Object.entries(mappings)) {
@@ -153,7 +167,10 @@ function loadFile() {
       pdfs: (loaded.pdfs || []).map(camelizeRecord),
       questions: (loaded.questions || []).map(camelizeRecord),
       examAnswers: (loaded.examAnswers || []).map(camelizeRecord),
-      examViolations: (loaded.examViolations || []).map(camelizeRecord)
+      examViolations: (loaded.examViolations || []).map(camelizeRecord),
+      labs: (loaded.labs || []).map(camelizeRecord),
+      labEnrollments: (loaded.labEnrollments || []).map(camelizeRecord),
+      labAttempts: (loaded.labAttempts || []).map(camelizeRecord)
     };
   }
 }

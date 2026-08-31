@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { LayoutDashboard, Users, FileText, Database, LogOut, Award, UserCog, Menu, X } from 'lucide-react';
+import { LayoutDashboard, Users, FileText, Database, LogOut, Award, UserCog, Menu, X, Terminal } from 'lucide-react';
 
 export default function AdminLayout() {
   const { logout, user } = useAuth();
@@ -18,6 +18,7 @@ export default function AdminLayout() {
     { name: 'Students', path: '/admin/students', icon: Users },
     { name: 'Exams', path: '/admin/exams', icon: FileText },
     { name: 'Question Bank', path: '/admin/questions', icon: Database },
+    { name: 'Simulator Labs', path: '/admin/labs', icon: Terminal },
     { name: 'Results', path: '/admin/results', icon: Award },
     { name: 'Admins', path: '/admin/admins', icon: UserCog },
   ].filter((item) => item.name !== 'Admins' || user?.isSuperAdmin);

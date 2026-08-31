@@ -106,3 +106,41 @@ CREATE INDEX IF NOT EXISTS idx_exams_status ON exams(status);
 CREATE INDEX IF NOT EXISTS idx_exam_enrollments_student ON exam_enrollments(student_id);
 CREATE INDEX IF NOT EXISTS idx_exam_sessions_student_exam ON exam_sessions(student_id, exam_id);
 CREATE INDEX IF NOT EXISTS idx_exam_violations_exam_student ON exam_violations(exam_id, student_id);
+
+CREATE TABLE IF NOT EXISTS labs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title VARCHAR(255) NOT NULL,
+  description TEXT,
+  difficulty VARCHAR(20) DEFAULT 'medium',
+  objective TEXT,
+  initial_state JSONB DEFAULT '{}',
+  target_state JSONB DEFAULT '{}',
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS lab_enrollments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  lab_id UUID NOT NULL REFERENCES labs(id) ON DELETE CASCADE,
+  student_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  enrolled_at TIMESTAMP DEFAULT NOW(),
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE(lab_id, student_id)
+);
+
+CREATE TABLE IF NOT EXISTS lab_attempts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  lab_id UUID NOT NULL REFERENCES labs(id) ON DELETE CASCADE,
+  student_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  score INTEGER DEFAULT 0,
+  passed BOOLEAN DEFAULT FALSE,
+  topology JSONB DEFAULT '{}',
+  configs JSONB DEFAULT '{}',
+  submitted_at TIMESTAMP DEFAULT NOW(),
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_lab_enrollments_student ON lab_enrollments(student_id);
+CREATE INDEX IF NOT EXISTS idx_lab_attempts_student_lab ON lab_attempts(student_id, lab_id);

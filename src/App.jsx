@@ -9,6 +9,7 @@ import Login from './pages/Login';
 import StudentDashboard from './pages/student/Dashboard';
 import ExamPage from './pages/student/ExamPage';
 import ResultPage from './pages/student/ResultPage';
+import Simulator from './pages/student/Simulator';
 
 import AdminLayout from './components/admin/AdminLayout';
 import AdminDashboard from './pages/admin/Dashboard';
@@ -17,6 +18,7 @@ import ExamManagement from './pages/admin/ExamManagement';
 import QuestionBank from './pages/admin/QuestionBank';
 import ResultManagement from './pages/admin/ResultManagement';
 import AdminManagement from './pages/admin/AdminManagement';
+import LabManagement from './pages/admin/LabManagement';
 
 function App() {
   return (
@@ -30,6 +32,8 @@ function App() {
             <Route path="/student" element={<ProtectedRoute allowedRole="student"><StudentDashboard /></ProtectedRoute>} />
             <Route path="/student/exam/:id" element={<ProtectedRoute allowedRole="student"><ExamPage /></ProtectedRoute>} />
             <Route path="/student/result/:id" element={<ProtectedRoute allowedRole="student"><ResultPage /></ProtectedRoute>} />
+            <Route path="/student/simulator" element={<ProtectedRoute allowedRole="student"><Simulator /></ProtectedRoute>} />
+            <Route path="/student/simulator/:labId" element={<ProtectedRoute allowedRole="student"><Simulator /></ProtectedRoute>} />
 
             {/* Admin Routes */}
             <Route path="/admin" element={<ProtectedRoute allowedRole="admin"><AdminLayout /></ProtectedRoute>}>
@@ -39,6 +43,7 @@ function App() {
               <Route path="questions" element={<QuestionBank />} />
               <Route path="results" element={<ResultManagement />} />
               <Route path="admins" element={<AdminManagement />} />
+              <Route path="labs" element={<LabManagement />} />
             </Route>
 
             {/* Fallback */}
