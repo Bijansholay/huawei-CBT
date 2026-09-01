@@ -356,7 +356,7 @@ export async function getAdminSessionReview(sessionId) {
 // Simulator Labs Integration APIs
 export async function listLabs() {
   const result = await apiFetch('/labs');
-  return result;
+  return result.data;
 }
 
 export async function createLab(payload) {
@@ -364,17 +364,17 @@ export async function createLab(payload) {
     method: 'POST',
     body: JSON.stringify(payload)
   });
-  return result;
+  return result.data;
 }
 
 export async function deleteLab(labId) {
   const result = await apiFetch(`/labs/${labId}`, { method: 'DELETE' });
-  return result;
+  return result.data;
 }
 
 export async function listLabEnrollments(labId) {
   const result = await apiFetch(`/labs/${labId}/enrollments`);
-  return result;
+  return result.data;
 }
 
 export async function enrollInLab(labId, studentId) {
@@ -382,7 +382,7 @@ export async function enrollInLab(labId, studentId) {
     method: 'POST',
     body: JSON.stringify({ studentId })
   });
-  return result;
+  return result.data;
 }
 
 export async function unenrollFromLab(labId, studentId) {
@@ -390,17 +390,17 @@ export async function unenrollFromLab(labId, studentId) {
     method: 'POST',
     body: JSON.stringify({ studentId })
   });
-  return result;
+  return result.data;
 }
 
 export async function listLabAttempts(labId) {
   const result = await apiFetch(`/labs/${labId}/attempts`);
-  return result;
+  return result.data;
 }
 
 export async function getLabAttempt(attemptId) {
   const result = await apiFetch(`/labs/attempts/${attemptId}`);
-  return result;
+  return result.data;
 }
 
 export async function submitLabAttempt(labId, payload) {
@@ -408,10 +408,10 @@ export async function submitLabAttempt(labId, payload) {
     method: 'POST',
     body: JSON.stringify(payload)
   });
-  return result;
+  return result.data;
 }
 
 export async function getLabDetails(labId) {
   const result = await apiFetch(`/labs/${labId}`);
-  return result;
+  return result.data;
 }
