@@ -12,7 +12,7 @@ import {
   simulatePingTrace,
   maskLengthToDotted
 } from "../../services/enspSimService";
-import { listLabs, getLabDetails, submitLabAttempt } from "../../services/api";
+import { listLabs, getLabDetails, submitLabAttempt, getToken } from "../../services/api";
 
 export default function Simulator() {
   const { labId } = useParams();
@@ -57,7 +57,7 @@ export default function Simulator() {
   const [submissionResult, setSubmissionResult] = useState(null);
   const [errorMsg, setErrorMsg] = useState("");
 
-  const token = localStorage.getItem("token") || "";
+  const token = getToken();
 
   // ----------------------------------------------------
   // API CALLS
@@ -72,7 +72,7 @@ export default function Simulator() {
     } else {
       fetchLabDetails(labId);
     }
-  }, [labId]);
+  }, [labId, token]);
 
   const fetchLabs = async () => {
     try {
