@@ -73,9 +73,24 @@ export function createDefaultDeviceState(nodeType, nodeName) {
         allowedPassVlans: [1]
       };
     }
-  } else if (nodeType === 'PC') {
+  } else if (nodeType === 'PC' || nodeType === 'Client' || nodeType === 'Server') {
     state.interfaces = {
       'Ethernet0/0/1': { ip: '', mask: '', gateway: '', shutdown: false }
+    };
+  } else if (nodeType === 'Hub') {
+    state.interfaces = {};
+    for (let i = 1; i <= 4; i++) {
+      state.interfaces[`Ethernet0/0/${i}`] = {
+        shutdown: false,
+        vlan: 1,
+        linkType: 'access',
+        allowedPassVlans: [1]
+      };
+    }
+  } else if (nodeType === 'Cloud') {
+    state.interfaces = {
+      'GigabitEthernet0/0/1': { ip: '', mask: '', shutdown: false },
+      'GigabitEthernet0/0/2': { ip: '', mask: '', shutdown: false }
     };
   }
 
