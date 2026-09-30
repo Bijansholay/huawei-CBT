@@ -20,42 +20,128 @@ function gradeLab(submittedTopology, submittedConfigs, targetState) {
   let earnedPoints = 0;
   const checks = [];
 
-  // 1. Validate Nodes (Weight: 20%)
-  if (targetState.nodes && Array.isArray(targetState.nodes)) {
-    targetState.nodes.forEach(targetNode => {
-      totalPoints += 10;
-      const matchedNode = (submittedTopology.nodes || []).find(
-        n => String(n.name).toLowerCase() === String(targetNode.name).toLowerCase() && n.type === targetNode.type
-      );
-      if (matchedNode) {
-        earnedPoints += 10;
-        checks.push(`Node check passed: ${targetNode.name} (${targetNode.type}) exists`);
-      } else {
-        checks.push(`Node check failed: Expected node ${targetNode.name} (${targetNode.type}) not found`);
-      }
-    });
+  const studentNodes = submittedTopology.nodes || [];
+  const studentLinks = submittedTopology.links || [];
+
+  // ------------------------------------------------------------------
+  // BUILD A FLEXIBLE TARGET-NAME → STUDENT-NODE MAPPING
+  // This resolves the mismatch when the target says "Router1" but the
+  // student's canvas node is "AR22201" (because they picked the AR2220
+  // model from the palette).  We try three strategies in priority order:
+  //   1. Exact canvas-name match   (Router1 ↔ Router1)
+  //   2. Hostname match            (target "Router1" ↔ student hostname "Router1")
+  //   3. Type-based fallback       (match unmatched target Router to unmatched student Router)
+  // ------------------------------------------------------------------
+  const targetNodes = targetState.nodes || [];
+  // Map: targetNodeName (lower) → student node object
+  const nameMap = {};
+  const usedStudentIds = new Set();
+
+  // Pass 1 – exact canvas-name match
+  for (const tn of targetNodes) {
+    const match = studentNodes.find(
+      sn => !usedStudentIds.has(sn.id) &&
+            String(sn.name).toLowerCase() === String(tn.name).toLowerCase() &&
+            sn.type === tn.type
+    );
+    if (match) {
+      nameMap[tn.name.toLowerCase()] = match;
+      usedStudentIds.add(match.id);
+    }
   }
 
-  // 2. Validate Wires / Links (Weight: 20%)
+  // Pass 2 – match by hostname stored in submitted configs
+  for (const tn of targetNodes) {
+    if (nameMap[tn.name.toLowerCase()]) continue; // already matched
+    for (const sn of studentNodes) {
+      if (usedStudentIds.has(sn.id) || sn.type !== tn.type) continue;
+      const cfg = submittedConfigs[sn.name];
+      if (cfg && String(cfg.hostname || "").toLowerCase() === String(tn.name).toLowerCase()) {
+        nameMap[tn.name.toLowerCase()] = sn;
+        usedStudentIds.add(sn.id);
+        break;
+      }
+    }
+  }
+
+  // Pass 2b – match by target config hostname (if target has configs with a hostname expectation)
+  if (targetState.configs) {
+    for (const tn of targetNodes) {
+      if (nameMap[tn.name.toLowerCase()]) continue;
+      const targetCfg = targetState.configs[tn.name];
+      if (!targetCfg || !targetCfg.hostname) continue;
+      for (const sn of studentNodes) {
+        if (usedStudentIds.has(sn.id) || sn.type !== tn.type) continue;
+        const cfg = submittedConfigs[sn.name];
+        if (cfg && String(cfg.hostname || "").toLowerCase() === String(targetCfg.hostname).toLowerCase()) {
+          nameMap[tn.name.toLowerCase()] = sn;
+          usedStudentIds.add(sn.id);
+          break;
+        }
+      }
+    }
+  }
+
+  // Pass 3 – type-based positional fallback (match remaining by same type)
+  for (const tn of targetNodes) {
+    if (nameMap[tn.name.toLowerCase()]) continue;
+    const match = studentNodes.find(
+      sn => !usedStudentIds.has(sn.id) && sn.type === tn.type
+    );
+    if (match) {
+      nameMap[tn.name.toLowerCase()] = match;
+      usedStudentIds.add(match.id);
+    }
+  }
+
+  // Helper to resolve a target node name to the student canvas node name
+  function resolveStudentName(targetName) {
+    const mapped = nameMap[String(targetName).toLowerCase()];
+    return mapped ? mapped.name : null;
+  }
+  function resolveStudentNode(targetName) {
+    return nameMap[String(targetName).toLowerCase()] || null;
+  }
+
+  // ------------------------------------------------------------------
+  // 1. VALIDATE NODES (Weight: 20%)
+  // ------------------------------------------------------------------
+  for (const tn of targetNodes) {
+    totalPoints += 10;
+    if (resolveStudentNode(tn.name)) {
+      earnedPoints += 10;
+      checks.push(`Node check passed: ${tn.name} (${tn.type}) exists`);
+    } else {
+      checks.push(`Node check failed: Expected node ${tn.name} (${tn.type}) not found`);
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // 2. VALIDATE WIRES / LINKS (Weight: 20%)
+  // ------------------------------------------------------------------
   if (targetState.links && Array.isArray(targetState.links)) {
     targetState.links.forEach(targetLink => {
       totalPoints += 10;
-      // Find a matching connection in the student's topology
-      const matchedLink = (submittedTopology.links || []).find(l => {
-        const fromNodeName = (submittedTopology.nodes || []).find(n => n.id === l.fromNodeId)?.name;
-        const toNodeName = (submittedTopology.nodes || []).find(n => n.id === l.toNodeId)?.name;
-        if (!fromNodeName || !toNodeName) return false;
 
+      // Resolve target names to student canvas node IDs
+      const fromStudent = resolveStudentNode(targetLink.fromNode);
+      const toStudent = resolveStudentNode(targetLink.toNode);
+
+      if (!fromStudent || !toStudent) {
+        checks.push(`Link check failed: Expected link between ${targetLink.fromNode} (${targetLink.fromInterface}) and ${targetLink.toNode} (${targetLink.toInterface})`);
+        return;
+      }
+
+      const matchedLink = studentLinks.find(l => {
         const dirMatch =
-          (fromNodeName.toLowerCase() === targetLink.fromNode.toLowerCase() &&
+          (l.fromNodeId === fromStudent.id &&
             l.fromInterface.toLowerCase() === targetLink.fromInterface.toLowerCase() &&
-            toNodeName.toLowerCase() === targetLink.toNode.toLowerCase() &&
+            l.toNodeId === toStudent.id &&
             l.toInterface.toLowerCase() === targetLink.toInterface.toLowerCase()) ||
-          (toNodeName.toLowerCase() === targetLink.fromNode.toLowerCase() &&
+          (l.toNodeId === fromStudent.id &&
             l.toInterface.toLowerCase() === targetLink.fromInterface.toLowerCase() &&
-            fromNodeName.toLowerCase() === targetLink.toNode.toLowerCase() &&
+            l.fromNodeId === toStudent.id &&
             l.fromInterface.toLowerCase() === targetLink.toInterface.toLowerCase());
-
         return dirMatch;
       });
 
@@ -68,10 +154,14 @@ function gradeLab(submittedTopology, submittedConfigs, targetState) {
     });
   }
 
-  // 3. Validate Configurations (Weight: 60%)
+  // ------------------------------------------------------------------
+  // 3. VALIDATE CONFIGURATIONS (Weight: 60%)
+  // ------------------------------------------------------------------
   if (targetState.configs && typeof targetState.configs === "object") {
     for (const [deviceName, deviceTargets] of Object.entries(targetState.configs)) {
-      const deviceConfig = submittedConfigs[deviceName] || {};
+      // Look up the student's config using the resolved name mapping
+      const studentName = resolveStudentName(deviceName) || deviceName;
+      const deviceConfig = submittedConfigs[studentName] || submittedConfigs[deviceName] || {};
 
       // Check Hostname
       if (deviceTargets.hostname) {
