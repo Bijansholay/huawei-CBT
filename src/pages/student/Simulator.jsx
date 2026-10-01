@@ -1106,23 +1106,67 @@ export default function Simulator() {
               initial={{ x: 300, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: 300, opacity: 0 }}
-              className="w-64 bg-slate-900 border-l border-slate-800 text-slate-200 p-4 flex flex-col flex-shrink-0 z-20 shadow-md"
+              className="w-72 bg-slate-900 border-l border-slate-800 text-slate-200 p-4 flex flex-col flex-shrink-0 z-20 shadow-md"
             >
               <div className="flex justify-between items-center pb-2 border-b border-slate-800 mb-3">
                 <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
-                  <CheckCircle size={14} className="text-blue-400" /> Lab Instructions
+                  <CheckCircle size={14} className="text-blue-400" /> Lab Instructions & Tasks
                 </h3>
                 <button onClick={() => setShowObjectivesPanel(false)} className="text-slate-400 hover:text-white"><X size={14} /></button>
               </div>
 
-              <div className="flex-1 overflow-y-auto pr-1 text-xs text-slate-300 space-y-2.5 font-sans leading-relaxed custom-scrollbar">
+              <div className="flex-1 overflow-y-auto pr-1 text-xs text-slate-300 space-y-3 font-sans leading-relaxed custom-scrollbar">
+                {/* Objective Text / Tasks */}
                 {lab?.objective ? (
-                  <div className="whitespace-pre-line text-slate-300 text-[11px] bg-slate-950/60 p-3 rounded-xl border border-slate-800">
+                  <div className="whitespace-pre-line text-slate-300 text-[11px] bg-slate-950/70 p-3 rounded-xl border border-slate-800 shadow-inner">
                     {lab.objective}
                   </div>
                 ) : (
                   <p className="text-slate-500 italic text-[11px]">No objective instructions described.</p>
                 )}
+
+                {/* VRP Quick Command Reference Box for Option 2 & Option 3 */}
+                <div className="bg-slate-950/80 p-3 rounded-xl border border-slate-800 text-[11px]">
+                  <div className="flex items-center gap-1.5 font-bold text-amber-400 mb-2">
+                    <Sparkles size={13} />
+                    <span>VRP Command Quick Reference</span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 mb-2">
+                    Click any command below to insert into active CLI, or type <code className="bg-slate-800 px-1 py-0.5 rounded text-amber-300 font-mono">?</code> in terminal:
+                  </p>
+
+                  <div className="flex flex-wrap gap-1.5 font-mono text-[10px]">
+                    {[
+                      'system-view',
+                      'sysname Router1',
+                      'interface g0/0/0',
+                      'ip address 192.168.1.1 24',
+                      'display ip interface brief',
+                      'vlan 10',
+                      'port link-type access',
+                      'port default vlan 10',
+                      'ping 192.168.1.2',
+                      '?'
+                    ].map((cmd) => (
+                      <button
+                        key={cmd}
+                        onClick={() => {
+                          navigator.clipboard.writeText(cmd).catch(() => {});
+                          if (openTerminals.length > 0) {
+                            const activeT = [...openTerminals].sort((a, b) => b.zIndex - a.zIndex)[0];
+                            if (activeT) {
+                              setTerminalInputs((prev) => ({ ...prev, [activeT.nodeId]: cmd }));
+                            }
+                          }
+                        }}
+                        className="bg-slate-900 hover:bg-blue-600 hover:text-white text-blue-300 border border-slate-700 rounded px-1.5 py-0.5 transition-colors cursor-pointer"
+                        title="Click to insert command into active terminal"
+                      >
+                        {cmd}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             </motion.aside>
           )}

@@ -132,9 +132,15 @@ export class VrpTerminalSession {
     const rawCmd = commandText.trim();
     if (!rawCmd) return { output: '', error: false, prompt: this.getPrompt() };
 
+    // Handle '?' or 'help' command requests for Option 3
+    if (rawCmd === '?' || rawCmd.toLowerCase() === 'help' || rawCmd.endsWith('?') || rawCmd.startsWith('?')) {
+      return this.handleHelp(rawCmd);
+    }
+
     this.commandHistory.push(rawCmd);
     const tokens = rawCmd.split(/\s+/);
     const cmdName = tokens[0].toLowerCase();
+
 
     // ----------------------------------------------------
     // PC COMMANDS
@@ -492,7 +498,150 @@ export class VrpTerminalSession {
       }
     }
 
-    return { output: `Error: Unrecognized command or parameters: '${rawCmd}'`, error: true, prompt: this.getPrompt() };
+    return { output: `Error: Unrecognized command or parameters: '${rawCmd}'. Type '?' or 'help' for available commands.`, error: true, prompt: this.getPrompt() };
+  }
+
+  // CLI Help Handler for VRP Commands & ? Help
+  handleHelp(rawCmd) {
+    const cleanCmd = rawCmd.replace(/\?/g, '').trim().toLowerCase();
+    const prompt = this.getPrompt();
+
+    // 1. PC Help
+    if (this.deviceType === 'PC') {
+      return {
+        output: [
+          'VRP PC CLI Help Options:',
+          '  ipconfig <ip> <mask> <gateway>  Configure PC network interface',
+          '  ipconfig                       Display current PC IP configuration',
+          '  ping <destination_ip>          Test ICMP network reachability to target host'
+        ].join('\n'),
+        error: false,
+        prompt
+      };
+    }
+
+    // 2. Sub-command help filtering (e.g., "dis ?", "ip ?", "port ?")
+    if (cleanCmd.startsWith('dis') || cleanCmd.startsWith('display')) {
+      return {
+        output: [
+          'Display commands:',
+          '  ip interface brief (dis ip int br)     Display IP status of interfaces',
+          '  current-configuration (dis cur)        Display current system configuration',
+          '  vlan                                   Display VLAN information',
+          '  ip routing-table                       Display IP routing table',
+          '  this                                   Display current view configuration'
+        ].join('\n'),
+        error: false,
+        prompt
+      };
+    }
+
+    if (cleanCmd.startsWith('ip')) {
+      return {
+        output: [
+          'IP commands:',
+          '  ip address <ip> <mask/prefix>          (Interface View) Configure IP address',
+          '  ip route-static <dest> <mask font-mono> <next-hop>   (System View) Configure static route'
+        ].join('\n'),
+        error: false,
+        prompt
+      };
+    }
+
+    if (cleanCmd.startsWith('port')) {
+      return {
+        output: [
+          'Port commands (Switch Interface View):',
+          '  port link-type <access|trunk>          Configure port link mode',
+          '  port default vlan <vlan-id>            Assign default VLAN to access port',
+          '  port trunk allow-pass vlan <vlans...>  Allow VLANs on trunk port'
+        ].join('\n'),
+        error: false,
+        prompt
+      };
+    }
+
+    // 3. View Mode Specific Help
+    switch (this.state.mode) {
+      case 'user':
+        return {
+          output: [
+            'User View Commands (<' + this.state.hostname + '>):',
+            '  system-view (sys)              Enter system configuration view',
+            '  display ip interface brief     Display interface IP status',
+            '  display current-configuration  Display configuration',
+            '  display vlan                   Display VLAN details',
+            '  display ip routing-table       Display IP routing table',
+            '  ping <ip_address>              Send ICMP echo request',
+            '  quit (q)                       Exit session'
+          ].join('\n'),
+          error: false,
+          prompt
+        };
+
+      case 'system':
+        return {
+          output: [
+            'System View Commands ([' + this.state.hostname + ']):',
+            '  sysname <name>                 Set device hostname',
+            '  interface <name> (int g0/0/0)  Enter interface view',
+            '  vlan <vlan-id>                 Create/enter VLAN configuration',
+            '  ospf <process-id>              Enter OSPF routing process',
+            '  ip route-static <dst> <m> <nw> Configure static route',
+            '  display ...                    Display system status/configuration',
+            '  quit (q)                       Return to user view',
+            '  return (ret)                   Return to user view directly'
+          ].join('\n'),
+          error: false,
+          prompt
+        };
+
+      case 'interface':
+        return {
+          output: [
+            'Interface View Commands ([' + this.state.hostname + '-' + (this.state.currentInterface || 'int') + ']):',
+            '  ip address <ip> <mask/prefix>  Set IP address (e.g. 192.168.1.1 24)',
+            '  shutdown / undo shutdown       Disable / enable interface',
+            '  port link-type <access|trunk>  Set switchport mode (Switch only)',
+            '  port default vlan <vlan-id>    Set access VLAN (Switch only)',
+            '  port trunk allow-pass vlan ... Allow VLANs on trunk (Switch only)',
+            '  display this                   Show interface configuration',
+            '  quit (q)                       Return to system view'
+          ].join('\n'),
+          error: false,
+          prompt
+        };
+
+      case 'vlan':
+        return {
+          output: [
+            'VLAN View Commands ([' + this.state.hostname + '-vlan' + this.state.currentVlan + ']):',
+            '  quit (q)                       Return to system view'
+          ].join('\n'),
+          error: false,
+          prompt
+        };
+
+      case 'ospf':
+      case 'ospf-area':
+        return {
+          output: [
+            'OSPF View Commands:',
+            '  area <area-id>                 Enter OSPF area (e.g. area 0)',
+            '  network <ip> <wildcard-mask>   (Area View) Advertise network range',
+            '  quit (q)                       Return to previous view'
+          ].join('\n'),
+          error: false,
+          prompt
+        };
+
+      default:
+        return {
+          output: 'Type "sys" to enter configuration mode, or "?" for available commands.',
+          error: false,
+          prompt
+        };
+    }
   }
 
   // CLI View displays
