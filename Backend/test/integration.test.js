@@ -12,103 +12,35 @@ process.env.ADMIN_PASSWORD = "admin-password";
 process.env.JWT_SECRET = "test-secret";
 
 const app = require("../src/app");
-const { Readable } = require("node:stream");
-const { ServerResponse } = require("node:http");
-const { Socket } = require("node:net");
-
-function createMockReq(method, url, headers = {}, body = "") {
-  const req = Readable.from(Buffer.from(body));
-  req.method = method;
-  req.url = url;
-  req.headers = {};
-  for (const [key, value] of Object.entries(headers)) {
-    req.headers[key.toLowerCase()] = value;
-  }
-  return req;
-}
-
-class MockRes extends ServerResponse {
-  constructor(req, callback) {
-    const socket = new Socket();
-    socket.writable = true;
-    socket.write = () => true;
-    socket.destroy = () => { socket.writable = false; return socket; };
-    socket.removeListener = socket.removeListener || (() => socket);
-
-    req.socket = socket;
-    req.connection = socket;
-
-    super(req);
-    this.req = req;
-    this.callback = callback;
-    this.body = Buffer.alloc(0);
-    this._mockSocket = socket;
-
-    this.write = (chunk, encoding, cb) => {
-      if (chunk) {
-        const buf = typeof chunk === "string" ? Buffer.from(chunk, encoding) : chunk;
-        this.body = Buffer.concat([this.body, buf]);
-      }
-      return true;
-    };
-
-    this.end = (chunk, encoding, cb) => {
-      if (chunk) {
-        const buf = typeof chunk === "string" ? Buffer.from(chunk, encoding) : chunk;
-        this.body = Buffer.concat([this.body, buf]);
-      }
-      const bodyStr = this.body.toString("utf8");
-      let json = null;
-      try {
-        json = JSON.parse(bodyStr);
-      } catch (e) {
-        json = bodyStr;
-      }
-      // Eagerly clean up the mock socket to prevent post-test GC crashes
-      try { req.socket = null; req.connection = null; } catch (e) {}
-      this.callback(null, {
-        statusCode: this.statusCode,
-        headers: this.getHeaders(),
-        json
-      });
-    };
-  }
-}
-
-function runMockRequest(app, method, pathName, headers = {}, bodyObj = null) {
-  return new Promise((resolve, reject) => {
-    const bodyStr = bodyObj ? JSON.stringify(bodyObj) : "";
-    const reqHeaders = {
-      ...headers,
-      "content-type": "application/json",
-      "content-length": Buffer.byteLength(bodyStr).toString()
-    };
-    const req = createMockReq(method, pathName, reqHeaders, bodyStr);
-    const res = new MockRes(req, (err, result) => {
-      // Eagerly destroy the readable to prevent Node 24 post-test GC from
-      // trying to call removeListener on the (now-null) socket.
-      if (!req.destroyed) { try { req.destroy(); } catch (e) {} }
-      if (err) return reject(err);
-      resolve({
-        response: { status: result.statusCode },
-        json: result.json
-      });
-    });
-
-    app(req, res);
-  });
-}
+const http = require("node:http");
 
 function listen() {
-  return Promise.resolve({
-    server: { close() {} },
-    baseUrl: ""
+  return new Promise((resolve) => {
+    const server = http.createServer(app);
+    server.listen(0, "127.0.0.1", () => {
+      const { port } = server.address();
+      resolve({ server, baseUrl: `http://127.0.0.1:${port}` });
+    });
   });
 }
 
-function request(baseUrl, method, pathName, body, token) {
-  const headers = token ? { authorization: `Bearer ${token}` } : {};
-  return runMockRequest(app, method, pathName, headers, body);
+async function request(baseUrl, method, pathName, body, token) {
+  const headers = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const res = await fetch(`${baseUrl}${pathName}`, {
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+
+  let json;
+  try {
+    json = await res.json();
+  } catch (e) {
+    json = null;
+  }
+  return { response: { status: res.status }, json };
 }
 
 test("frontend integration API flow", async () => {
@@ -323,10 +255,7 @@ test("frontend integration API flow", async () => {
     assert.equal(examStudentsAfter.response.status, 200);
     assert.equal(examStudentsAfter.json.data.students.length, 0);
   } finally {
-    server.close();
+    await new Promise((resolve) => server.close(resolve));
     if (fs.existsSync(process.env.DATA_FILE)) fs.unlinkSync(process.env.DATA_FILE);
-    if (fs.existsSync(baseUrl)) {
-      try { fs.unlinkSync(baseUrl); } catch (e) {}
-    }
   }
 });
