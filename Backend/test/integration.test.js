@@ -32,6 +32,8 @@ class MockRes extends ServerResponse {
     const socket = new Socket();
     socket.writable = true;
     socket.write = () => true;
+    socket.destroy = () => { socket.writable = false; return socket; };
+    socket.removeListener = socket.removeListener || (() => socket);
 
     req.socket = socket;
     req.connection = socket;
@@ -40,6 +42,7 @@ class MockRes extends ServerResponse {
     this.req = req;
     this.callback = callback;
     this.body = Buffer.alloc(0);
+    this._mockSocket = socket;
 
     this.write = (chunk, encoding, cb) => {
       if (chunk) {
@@ -61,6 +64,8 @@ class MockRes extends ServerResponse {
       } catch (e) {
         json = bodyStr;
       }
+      // Eagerly clean up the mock socket to prevent post-test GC crashes
+      try { req.socket = null; req.connection = null; } catch (e) {}
       this.callback(null, {
         statusCode: this.statusCode,
         headers: this.getHeaders(),
@@ -80,6 +85,9 @@ function runMockRequest(app, method, pathName, headers = {}, bodyObj = null) {
     };
     const req = createMockReq(method, pathName, reqHeaders, bodyStr);
     const res = new MockRes(req, (err, result) => {
+      // Eagerly destroy the readable to prevent Node 24 post-test GC from
+      // trying to call removeListener on the (now-null) socket.
+      if (!req.destroyed) { try { req.destroy(); } catch (e) {} }
       if (err) return reject(err);
       resolve({
         response: { status: result.statusCode },
