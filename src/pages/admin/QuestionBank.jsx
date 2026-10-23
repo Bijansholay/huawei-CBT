@@ -57,8 +57,8 @@ function parseBulkQuestions(text) {
     for (const line of lines) {
       if (line.match(/^(Question:|Q:)/i)) {
         questionText = line.replace(/^(Question:|Q:)\s*/i, '').trim();
-      } else if (line.match(/^[A-D][\).:]\s*/i)) {
-        const match = line.match(/^([A-D])[\).:]\s*(.*)/i);
+      } else if (line.match(/^[A-D][).:]\s*/i)) {
+        const match = line.match(/^([A-D])[).:]\s*(.*)/i);
         if (match) {
           optionsMap[match[1].toUpperCase()] = match[2].trim();
         }
@@ -428,7 +428,7 @@ export default function QuestionBank() {
       await deleteQuestionsBulk(Array.from(selectedIds));
       setSuccessMessage(`Successfully deleted ${selectedIds.size} questions.`);
       await loadData();
-    } catch (err) {
+    } catch {
       // Fallback one-by-one delete in case backend update fails or hasn't deployed
       try {
         const ids = Array.from(selectedIds);

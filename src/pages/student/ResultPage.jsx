@@ -11,7 +11,9 @@ export default function ResultPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { lastSubmission } = useExam();
-  const [result, setResult] = useState(null);
+  const [result, setResult] = useState(() => (
+    lastSubmission?.examId === id && lastSubmission.result ? lastSubmission.result : null
+  ));
   const [review, setReview] = useState(null);
   const [isReviewLoading, setIsReviewLoading] = useState(true);
   const [examTitle, setExamTitle] = useState('');
@@ -53,10 +55,6 @@ export default function ResultPage() {
           setIsReviewLoading(false);
         }
       }
-    }
-
-    if (lastSubmission?.examId === id && lastSubmission.result) {
-      setResult(lastSubmission.result);
     }
 
     loadResult();

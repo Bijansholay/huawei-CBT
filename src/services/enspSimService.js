@@ -165,7 +165,7 @@ export class VrpTerminalSession {
         }
 
         if (tokens.length === 4) {
-          const [_, ip, mask, gw] = tokens;
+          const [, ip, mask, gw] = tokens;
           // Simple validation
           if (!ip.includes('.') || !mask.includes('.')) {
             return { output: 'Error: Invalid parameters.', error: true, prompt: this.getPrompt() };
@@ -700,8 +700,8 @@ export class VrpTerminalSession {
     output += '------------------------------------------------------------------------\n';
     this.state.vlans.forEach(v => {
       const ports = Object.entries(this.state.interfaces)
-        .filter(([_, int]) => int.vlan === v || (int.linkType === 'trunk' && int.allowedPassVlans.includes(v)))
-        .map(([name, _]) => name.replace('GigabitEthernet0/0/', 'GE0/0/'))
+        .filter(([, int]) => int.vlan === v || (int.linkType === 'trunk' && int.allowedPassVlans.includes(v)))
+        .map(([name]) => name.replace('GigabitEthernet0/0/', 'GE0/0/'))
         .join(' ');
       output += `${String(v).padEnd(8)} common       enable   ${ports}\n`;
     });
@@ -755,7 +755,7 @@ export function simulatePingTrace(startNodeId, destIp, topology, allDeviceStates
   // Recursively trace path through topology
   const visited = new Set();
   
-  function findRoute(currentNode, targetIp, prevIp) {
+  function findRoute(currentNode, targetIp) {
     if (visited.has(currentNode.id)) {
       logs.push(`Loop detected at ${currentNode.name}.`);
       return null;
@@ -766,7 +766,7 @@ export function simulatePingTrace(startNodeId, destIp, topology, allDeviceStates
     if (!currState) return null;
 
     // Check if target IP matches any of current node's directly configured interfaces
-    const localMatch = Object.entries(currState.interfaces).find(([intName, int]) => {
+    const localMatch = Object.entries(currState.interfaces).find(([, int]) => {
       return int.ip === targetIp && !int.shutdown;
     });
 
@@ -776,7 +776,7 @@ export function simulatePingTrace(startNodeId, destIp, topology, allDeviceStates
     }
 
     // Look for matching subnet on direct interfaces (direct route)
-    const directSubnetMatch = Object.entries(currState.interfaces).find(([intName, int]) => {
+    const directSubnetMatch = Object.entries(currState.interfaces).find(([, int]) => {
       if (!int.ip || int.shutdown) return false;
       return ipInSubnet(targetIp, int.ip, int.mask);
     });
@@ -845,7 +845,7 @@ export function simulatePingTrace(startNodeId, destIp, topology, allDeviceStates
           const targetNode = nodes.find(n => n.id === targetNodeId);
           if (!targetNode) continue;
           
-          const pathRes = findRoute(targetNode, targetIp, null);
+          const pathRes = findRoute(targetNode, targetIp);
           if (pathRes) {
             return [currentNode.name, nextNode.name, ...pathRes];
           }
@@ -855,7 +855,7 @@ export function simulatePingTrace(startNodeId, destIp, topology, allDeviceStates
 
       // If nextNode is another router/PC, check if it has the IP address configured
       if (nextNode.type === 'Router' || nextNode.type === 'PC') {
-        const routeResult = findRoute(nextNode, targetIp, nextInt.ip);
+        const routeResult = findRoute(nextNode, targetIp);
         if (routeResult) {
           return [currentNode.name, ...routeResult];
         }
@@ -881,7 +881,7 @@ export function simulatePingTrace(startNodeId, destIp, topology, allDeviceStates
             return null;
           }
 
-          const pathRes = findRoute(nextNodeMatch, targetIp, null);
+          const pathRes = findRoute(nextNodeMatch, targetIp);
           if (pathRes) {
             return [currentNode.name, ...pathRes];
           }
@@ -905,7 +905,7 @@ export function simulatePingTrace(startNodeId, destIp, topology, allDeviceStates
         });
 
         for (const neighbor of ospfNeighbors) {
-          const pathRes = findRoute(neighbor, targetIp, null);
+          const pathRes = findRoute(neighbor, targetIp);
           if (pathRes) {
             return [currentNode.name, ...pathRes];
           }
@@ -924,7 +924,7 @@ export function simulatePingTrace(startNodeId, destIp, topology, allDeviceStates
         });
 
         if (gatewayNode) {
-          const pathRes = findRoute(gatewayNode, targetIp, null);
+          const pathRes = findRoute(gatewayNode, targetIp);
           if (pathRes) {
             return [currentNode.name, ...pathRes];
           }
@@ -935,7 +935,7 @@ export function simulatePingTrace(startNodeId, destIp, topology, allDeviceStates
     return null;
   }
 
-  const finalPath = findRoute(startNode, destIp, null);
+  const finalPath = findRoute(startNode, destIp);
   if (finalPath) {
     logs.push(`Ping trace completed successfully! Path: ${finalPath.join(' -> ')}`);
     return { success: true, path: finalPath, logs };

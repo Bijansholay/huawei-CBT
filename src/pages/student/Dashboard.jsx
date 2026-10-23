@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import Navbar from '../../components/student/Navbar';
 import { motion } from 'framer-motion';
 import { Clock, BookOpen, AlertCircle } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../context/authContextValue';
 
 export default function Dashboard() {
   const { exams, loadExams, isExamLoading } = useExam();

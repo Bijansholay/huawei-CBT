@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../context/authContextValue';
 import { LayoutDashboard, Users, FileText, Database, LogOut, Award, UserCog, Menu, X, Terminal } from 'lucide-react';
 
 export default function AdminLayout() {

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/authContextValue';
 import { BookOpen, User, Lock, Sparkles, ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 

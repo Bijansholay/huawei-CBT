@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { 
-  Terminal, ShieldAlert, Cpu, Server, Plus, Trash2, 
-  UserPlus, UserMinus, FileText, CheckCircle, RefreshCw, X
+  Terminal, ShieldAlert, Plus, Trash2,
+  UserPlus, FileText, RefreshCw, X
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -55,11 +55,7 @@ export default function LabManagement() {
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setIsLoading(true);
       setErrorMsg("");
@@ -75,7 +71,11 @@ export default function LabManagement() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    Promise.resolve().then(fetchData);
+  }, [fetchData]);
 
   // ----------------------------------------------------
   // LAB CRUD HANDLERS
@@ -102,9 +102,10 @@ export default function LabManagement() {
     if (!tmpConfDevName.trim()) return;
     const dev = tmpConfDevName.trim();
     const currentDev = targetConfigs[dev] || { hostname: dev, interfaces: {} };
+    const nextDev = { ...currentDev, interfaces: { ...currentDev.interfaces } };
     
     if (tmpConfIp.trim()) {
-      currentDev.interfaces[tmpConfIntName] = {
+      nextDev.interfaces[tmpConfIntName] = {
         ip: tmpConfIp.trim(),
         mask: tmpConfMask.trim(),
         vlan: tmpConfVlan.trim() ? Number(tmpConfVlan) : undefined
@@ -113,7 +114,7 @@ export default function LabManagement() {
 
     setTargetConfigs({
       ...targetConfigs,
-      [dev]: currentDev
+      [dev]: nextDev
     });
     setTmpConfDevName("");
     setTmpConfIp("");

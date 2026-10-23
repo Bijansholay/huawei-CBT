@@ -1,18 +1,17 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { 
   Terminal, Cable, Cpu, Server, Monitor, HardDrive, Cloud, Network,
   Trash2, CheckCircle, Play, ArrowLeft, RefreshCw, AlertCircle, Sparkles,
-  Square, ZoomIn, ZoomOut, Maximize2, Grid, Layers, X, Move, Settings,
-  RotateCcw, Save, StopCircle, LayoutGrid, Minimize2
+  ZoomIn, ZoomOut, Grid, X, Settings,
+  RotateCcw, StopCircle, LayoutGrid, Minimize2
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Navbar from "../../components/student/Navbar";
 import { 
   createDefaultDeviceState, 
   VrpTerminalSession, 
-  simulatePingTrace,
-  maskLengthToDotted
+  simulatePingTrace
 } from "../../services/enspSimService";
 import { listLabs, getLabDetails, submitLabAttempt, getToken } from "../../services/api";
 
@@ -26,7 +25,6 @@ export default function Simulator() {
   
   // Active Lab state
   const [lab, setLab] = useState(null);
-  const [isLoadingLab, setIsLoadingLab] = useState(false);
 
   // Simulation Engine state
   const [isSimRunning, setIsSimRunning] = useState(true);
@@ -78,7 +76,7 @@ export default function Simulator() {
   // Verification & Submission state
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submissionResult, setSubmissionResult] = useState(null);
-  const [errorMsg, setErrorMsg] = useState("");
+  const [, setErrorMsg] = useState("");
   const [showObjectivesPanel, setShowObjectivesPanel] = useState(true);
 
   const token = getToken();
@@ -86,19 +84,7 @@ export default function Simulator() {
   // ----------------------------------------------------
   // INITIALIZATION & API FETCH
   // ----------------------------------------------------
-  useEffect(() => {
-    if (!token) {
-      navigate("/");
-      return;
-    }
-    if (!labId) {
-      fetchLabs();
-    } else {
-      fetchLabDetails(labId);
-    }
-  }, [labId, token]);
-
-  const fetchLabs = async () => {
+  const fetchLabs = useCallback(async () => {
     try {
       setIsLoadingLabs(true);
       const res = await listLabs();
@@ -109,16 +95,13 @@ export default function Simulator() {
     } finally {
       setIsLoadingLabs(false);
     }
-  };
+  }, []);
 
-  const fetchLabDetails = async (id) => {
+  const fetchLabDetails = useCallback(async (id) => {
     try {
-      setIsLoadingLab(true);
       const res = await getLabDetails(id);
       const labData = res.lab;
       setLab(labData);
-      
-      // Load initial state if present
       const initial = labData.initialState || {};
       setNodes(initial.nodes || []);
       setLinks(initial.links || []);
@@ -129,10 +112,20 @@ export default function Simulator() {
     } catch (err) {
       console.error(err);
       setErrorMsg("Failed to load lab workspace.");
-    } finally {
-      setIsLoadingLab(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (!token) {
+      navigate("/");
+      return;
+    }
+    if (!labId) {
+      Promise.resolve().then(fetchLabs);
+    } else {
+      Promise.resolve().then(() => fetchLabDetails(labId));
+    }
+  }, [labId, token, navigate, fetchLabs, fetchLabDetails]);
 
   // Close context menu on outside click
   useEffect(() => {
@@ -356,7 +349,7 @@ export default function Simulator() {
     } else {
       // Connect wires
       const newLink = {
-        id: `link_${Date.now()}_${Math.floor(Math.random()*1000)}`,
+        id: crypto.randomUUID(),
         fromNodeId: cableSourceNodeId,
         fromInterface: cableSourceInterface,
         toNodeId: modalNodeId,

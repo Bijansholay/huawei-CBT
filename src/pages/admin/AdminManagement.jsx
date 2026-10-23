@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Pencil, Plus, Search, Trash2, UserCog, X } from 'lucide-react';
 import { createAdmin, deleteAdmin, listAdmins, updateAdmin } from '../../services/api';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../context/authContextValue';
 
 export default function AdminManagement() {
   const { user } = useAuth();
